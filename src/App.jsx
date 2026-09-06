@@ -35,7 +35,6 @@ function shuffle(array) {
 
 function App() {
   const [tab, setTab] = useState('inicio')
-
   const [session, setSession] = useState(null)
 
   const [authMode, setAuthMode] = useState('login')
@@ -45,12 +44,12 @@ function App() {
 
   const [progress, setProgress] = useState({})
   const [answers, setAnswers] = useState({})
+  const [errorNotebook, setErrorNotebook] = useState([])
 
   const [dayFilter, setDayFilter] = useState('Todos')
   const [themeFilter, setThemeFilter] = useState('Todos')
   const [questionLimit, setQuestionLimit] = useState(10)
 
-  // SIMULADO
   const [simMode, setSimMode] = useState('Semana atual')
   const [simQuantity, setSimQuantity] = useState(20)
   const [includeAnswered, setIncludeAnswered] = useState(true)
@@ -64,33 +63,26 @@ function App() {
   const [simHistory, setSimHistory] = useState([])
 
   const todayName = weekDayMap[new Date().getDay()]
-
   const todayPlan =
     studyPlan.find(x => x.day === todayName) ||
     studyPlan[0]
 
-  // =========================================================
-  // LOGIN / SESSÃO
-  // =========================================================
-
   useEffect(() => {
     if (!cloudEnabled) {
       setProgress(
-        JSON.parse(
-          localStorage.getItem('tp_progress') || '{}'
-        )
+        JSON.parse(localStorage.getItem('tp_progress') || '{}')
       )
 
       setAnswers(
-        JSON.parse(
-          localStorage.getItem('tp_answers') || '{}'
-        )
+        JSON.parse(localStorage.getItem('tp_answers') || '{}')
+      )
+
+      setErrorNotebook(
+        JSON.parse(localStorage.getItem('tp_error_notebook') || '[]')
       )
 
       setSimHistory(
-        JSON.parse(
-          localStorage.getItem('tp_sim_history') || '[]'
-        )
+        JSON.parse(localStorage.getItem('tp_sim_history') || '[]')
       )
 
       return
@@ -107,13 +99,11 @@ function App() {
         }
       )
 
-    return () =>
-      listener.subscription.unsubscribe()
+    return () => listener.subscription.unsubscribe()
   }, [])
 
   useEffect(() => {
     if (!cloudEnabled || !session?.user) return
-
     loadCloudState()
   }, [session])
 
@@ -123,6 +113,7 @@ function App() {
     const [
       { data: p },
       { data: a },
+      { data: errors },
       { data: sims }
     ] = await Promise.all([
       supabase
@@ -136,6 +127,12 @@ function App() {
         .eq('user_id', userId),
 
       supabase
+        .from('error_notebook')
+        .select('*')
+        .eq('user_id', userId)
+        .order('last_error_at', { ascending: false }),
+
+      supabase
         .from('simulation_results')
         .select('*')
         .eq('user_id', userId)
@@ -143,25 +140,25 @@ function App() {
         .limit(20)
     ])
 
-    const pMap = Object.fromEntries(
-      (p || []).map(row => [
-        row.item_key,
-        row.status
-      ])
+    setProgress(
+      Object.fromEntries(
+        (p || []).map(row => [row.item_key, row.status])
+      )
     )
 
-    const aMap = Object.fromEntries(
-      (a || []).map(row => [
-        row.question_id,
-        {
-          selected: row.selected_option,
-          correct: row.is_correct
-        }
-      ])
+    setAnswers(
+      Object.fromEntries(
+        (a || []).map(row => [
+          row.question_id,
+          {
+            selected: row.selected_option,
+            correct: row.is_correct
+          }
+        ])
+      )
     )
 
-    setProgress(pMap)
-    setAnswers(aMap)
+    setErrorNotebook(errors || [])
     setSimHistory(sims || [])
   }
 
@@ -170,9 +167,7 @@ function App() {
     setMessage('')
 
     if (!cloudEnabled) {
-      setMessage(
-        'Configure o Supabase para ativar login e sincronização.'
-      )
+      setMessage('Configure o Supabase para ativar login e sincronização.')
       return
     }
 
@@ -204,10 +199,6 @@ function App() {
     }
   }
 
-  // =========================================================
-  // PROGRESSO
-  // =========================================================
-
   async function setItemProgress(key, status) {
     const next = {
       ...progress,
@@ -217,11 +208,7 @@ function App() {
     setProgress(next)
 
     if (!cloudEnabled || !session?.user) {
-      localStorage.setItem(
-        'tp_progress',
-        JSON.stringify(next)
-      )
-
+      localStorage.setItem('tp_progress', JSON.stringify(next))
       return
     }
 
@@ -239,14 +226,139 @@ function App() {
       )
   }
 
-  // =========================================================
-  // QUESTÕES NORMAIS
-  // =========================================================
+  async function addErrorToNotebook(q, selected, source) {
+    const now = new Date().toISOString()
+
+    if (!cloudEnabled || !session?.user) {
+      const existing =
+        JSON.parse(localStorage.getItem('tp_error_notebook') || '[]')
+
+      const found = existing.find(item => item.question_id === q.id)
+
+      let next
+
+      if (found) {
+        next = existing.map(item =>
+          item.question_id === q.id
+            ? {
+                ...item,
+                selected_option: selected,
+                source,
+                error_count: (item.error_count || 1) + 1,
+                last_error_at: now,
+                reviewed: false
+              }
+            : item
+        )
+      } else {
+        next = [
+          {
+            id: crypto.randomUUID(),
+            question_id: q.id,
+            source,
+            theme: q.theme,
+            statement: q.statement,
+            selected_option: selected,
+            correct_option: q.correct,
+            explanation: q.explanation,
+            error_count: 1,
+            reviewed: false,
+            last_error_at: now
+          },
+          ...existing
+        ]
+      }
+
+      localStorage.setItem(
+        'tp_error_notebook',
+        JSON.stringify(next)
+      )
+
+      setErrorNotebook(next)
+      return
+    }
+
+    const existing =
+      errorNotebook.find(item => item.question_id === q.id)
+
+    const payload = {
+      user_id: session.user.id,
+      question_id: q.id,
+      source,
+      theme: q.theme,
+      statement: q.statement,
+      selected_option: selected,
+      correct_option: q.correct,
+      explanation: q.explanation,
+      error_count: existing
+        ? (existing.error_count || 1) + 1
+        : 1,
+      reviewed: false,
+      last_error_at: now
+    }
+
+    const { data, error } =
+      await supabase
+        .from('error_notebook')
+        .upsert(payload, {
+          onConflict: 'user_id,question_id'
+        })
+        .select()
+        .single()
+
+    if (!error && data) {
+      setErrorNotebook(prev => {
+        const without = prev.filter(
+          item => item.question_id !== q.id
+        )
+
+        return [data, ...without]
+      })
+    }
+  }
+
+  async function markErrorReviewed(id, reviewed) {
+    if (!cloudEnabled || !session?.user) {
+      const next = errorNotebook.map(item =>
+        item.id === id
+          ? { ...item, reviewed }
+          : item
+      )
+
+      setErrorNotebook(next)
+
+      localStorage.setItem(
+        'tp_error_notebook',
+        JSON.stringify(next)
+      )
+
+      return
+    }
+
+    const { data, error } =
+      await supabase
+        .from('error_notebook')
+        .update({ reviewed })
+        .eq('id', id)
+        .eq('user_id', session.user.id)
+        .select()
+        .single()
+
+    if (!error && data) {
+      setErrorNotebook(prev =>
+        prev.map(item =>
+          item.id === id ? data : item
+        )
+      )
+    }
+  }
 
   async function answerQuestion(q, selected) {
+    const isCorrect = selected === q.correct
+
     const entry = {
       selected,
-      correct: selected === q.correct
+      correct: isCorrect
     }
 
     const next = {
@@ -256,12 +368,16 @@ function App() {
 
     setAnswers(next)
 
-    if (!cloudEnabled || !session?.user) {
-      localStorage.setItem(
-        'tp_answers',
-        JSON.stringify(next)
+    if (!isCorrect) {
+      await addErrorToNotebook(
+        q,
+        selected,
+        'Questão normal'
       )
+    }
 
+    if (!cloudEnabled || !session?.user) {
+      localStorage.setItem('tp_answers', JSON.stringify(next))
       return
     }
 
@@ -272,7 +388,7 @@ function App() {
           user_id: session.user.id,
           question_id: q.id,
           selected_option: selected,
-          is_correct: selected === q.correct,
+          is_correct: isCorrect,
           day_label: q.day,
           theme: q.theme
         },
@@ -285,9 +401,7 @@ function App() {
   const themes = useMemo(
     () => [
       'Todos',
-      ...new Set(
-        questions.map(q => q.theme)
-      )
+      ...new Set(questions.map(q => q.theme))
     ],
     []
   )
@@ -306,38 +420,25 @@ function App() {
     )
 
   const visibleQuestions =
-    filteredQuestions.slice(
-      0,
-      questionLimit
-    )
+    filteredQuestions.slice(0, questionLimit)
 
   useEffect(() => {
     setQuestionLimit(10)
   }, [dayFilter, themeFilter])
 
-  const incorrect =
-    questions.filter(
-      q =>
-        answers[q.id] &&
-        !answers[q.id].correct
-    )
-
   const answeredCount =
     Object.keys(answers).length
 
   const correctCount =
-    Object.values(answers).filter(
-      a => a.correct
-    ).length
+    Object.values(answers).filter(a => a.correct).length
 
   const finished =
     Object.values(progress).filter(
       v => v === 'Concluído'
     ).length
 
-  // =========================================================
-  // SIMULADO
-  // =========================================================
+  const activeErrors =
+    errorNotebook.filter(item => !item.reviewed)
 
   const studiedDays = useMemo(() => {
     const result = new Set()
@@ -361,36 +462,27 @@ function App() {
 
   const weakThemes = useMemo(() => {
     return new Set(
-      questions
-        .filter(
-          q =>
-            answers[q.id] &&
-            !answers[q.id].correct
-        )
-        .map(q => q.theme)
+      activeErrors.map(item => item.theme)
     )
-  }, [answers])
+  }, [activeErrors])
 
   function getSimulationPool() {
     let pool = []
 
     if (simMode === 'Semana atual') {
       pool = questions.filter(
-        q =>
-          weekStudyDays.includes(q.day)
+        q => weekStudyDays.includes(q.day)
       )
     }
 
     if (simMode === 'Tudo estudado') {
       if (studiedDays.size > 0) {
         pool = questions.filter(
-          q =>
-            studiedDays.has(q.day)
+          q => studiedDays.has(q.day)
         )
       } else {
         pool = questions.filter(
-          q =>
-            weekStudyDays.includes(q.day)
+          q => weekStudyDays.includes(q.day)
         )
       }
     }
@@ -398,13 +490,11 @@ function App() {
     if (simMode === 'Só pontos fracos') {
       if (weakThemes.size > 0) {
         pool = questions.filter(
-          q =>
-            weakThemes.has(q.theme)
+          q => weakThemes.has(q.theme)
         )
       } else {
         pool = questions.filter(
-          q =>
-            weekStudyDays.includes(q.day)
+          q => weekStudyDays.includes(q.day)
         )
       }
     }
@@ -419,10 +509,7 @@ function App() {
   }
 
   function weightedQuestionOrder(pool) {
-    if (
-      !weakWeight ||
-      weakThemes.size === 0
-    ) {
+    if (!weakWeight || weakThemes.size === 0) {
       return shuffle(pool)
     }
 
@@ -437,9 +524,7 @@ function App() {
       }
     })
 
-    const shuffled =
-      shuffle(weighted)
-
+    const shuffled = shuffle(weighted)
     const unique = []
     const ids = new Set()
 
@@ -454,19 +539,16 @@ function App() {
   }
 
   function createSimulation() {
-    const pool =
-      getSimulationPool()
+    const pool = getSimulationPool()
 
     if (pool.length === 0) {
       setSimMessage(
         'Não há questões disponíveis com esses filtros.'
       )
-
       return
     }
 
-    const ordered =
-      weightedQuestionOrder(pool)
+    const ordered = weightedQuestionOrder(pool)
 
     const selected =
       ordered.slice(
@@ -482,10 +564,7 @@ function App() {
     setSimFinished(false)
     setSimResult(null)
 
-    if (
-      selected.length <
-      simQuantity
-    ) {
+    if (selected.length < simQuantity) {
       setSimMessage(
         `O banco possui ${selected.length} questões disponíveis para esses critérios.`
       )
@@ -494,10 +573,7 @@ function App() {
     }
   }
 
-  function selectSimulationAnswer(
-    questionId,
-    option
-  ) {
+  function selectSimulationAnswer(questionId, option) {
     if (simFinished) return
 
     setSimAnswers(prev => ({
@@ -514,47 +590,49 @@ function App() {
       setSimMessage(
         'Responda todas as questões antes de finalizar o simulado.'
       )
-
       return
     }
 
     let correct = 0
-
     const themeStats = {}
 
-    const details =
-      simQuestions.map(q => {
-        const selected =
-          simAnswers[q.id]
+    const details = []
 
-        const isCorrect =
-          selected === q.correct
+    for (const q of simQuestions) {
+      const selected = simAnswers[q.id]
+      const isCorrect = selected === q.correct
 
-        if (isCorrect) {
-          correct++
-        }
-
-        if (!themeStats[q.theme]) {
-          themeStats[q.theme] = {
-            total: 0,
-            correct: 0
-          }
-        }
-
-        themeStats[q.theme].total++
-
-        if (isCorrect) {
-          themeStats[q.theme].correct++
-        }
-
-        return {
-          question_id: q.id,
-          theme: q.theme,
+      if (isCorrect) {
+        correct++
+      } else {
+        await addErrorToNotebook(
+          q,
           selected,
-          correct: q.correct,
-          is_correct: isCorrect
+          'Simulado'
+        )
+      }
+
+      if (!themeStats[q.theme]) {
+        themeStats[q.theme] = {
+          total: 0,
+          correct: 0
         }
+      }
+
+      themeStats[q.theme].total++
+
+      if (isCorrect) {
+        themeStats[q.theme].correct++
+      }
+
+      details.push({
+        question_id: q.id,
+        theme: q.theme,
+        selected,
+        correct: q.correct,
+        is_correct: isCorrect
       })
+    }
 
     const percentage =
       Number(
@@ -592,16 +670,13 @@ function App() {
     if (!cloudEnabled || !session?.user) {
       const existing =
         JSON.parse(
-          localStorage.getItem(
-            'tp_sim_history'
-          ) || '[]'
+          localStorage.getItem('tp_sim_history') || '[]'
         )
 
       const localRecord = {
         ...record,
         id: crypto.randomUUID(),
-        created_at:
-          new Date().toISOString()
+        created_at: new Date().toISOString()
       }
 
       const next = [
@@ -615,7 +690,6 @@ function App() {
       )
 
       setSimHistory(next)
-
       return
     }
 
@@ -645,23 +719,16 @@ function App() {
     setSimMessage('')
   }
 
-  // =========================================================
-  // INTERFACE
-  // =========================================================
-
   return (
     <div className="app-shell">
 
       <header className="topbar">
-
         <div>
           <div className="eyebrow">
             TRANSPETRO 2026
           </div>
 
-          <h1>
-            Análise Ambiental
-          </h1>
+          <h1>Análise Ambiental</h1>
         </div>
 
         <div className="sync-pill">
@@ -671,11 +738,9 @@ function App() {
               : '⚠ Entre na conta para sincronizar'
             : '● Modo local'}
         </div>
-
       </header>
 
       <nav className="nav">
-
         {[
           ['inicio','Início'],
           ['aulas','Aulas'],
@@ -685,60 +750,39 @@ function App() {
           ['erros','Caderno de erros'],
           ['conta','Conta']
         ].map(([id,label]) => (
-
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={
-              tab === id
-                ? 'active'
-                : ''
-            }
+            className={tab === id ? 'active' : ''}
           >
             {label}
           </button>
-
         ))}
-
       </nav>
 
       <main>
 
         {tab === 'inicio' && (
           <>
-
             <section className="hero-card">
-
               <div>
-
                 <div className="eyebrow">
-                  ESTUDAR HOJE •{' '}
-                  {todayName.toUpperCase()}
+                  ESTUDAR HOJE • {todayName.toUpperCase()}
                 </div>
 
-                <h2>
-                  {todayPlan.theme}
-                </h2>
-
-                <p>
-                  {todayPlan.block}
-                </p>
-
+                <h2>{todayPlan.theme}</h2>
+                <p>{todayPlan.block}</p>
               </div>
 
               <button
                 className="primary"
-                onClick={() =>
-                  setTab('aulas')
-                }
+                onClick={() => setTab('aulas')}
               >
                 Estudar hoje →
               </button>
-
             </section>
 
             <section className="stats-grid">
-
               <Stat
                 label="Itens concluídos"
                 value={`${finished}/${editalItems.length}`}
@@ -764,34 +808,24 @@ function App() {
 
               <Stat
                 label="Erros para revisar"
-                value={incorrect.length}
+                value={activeErrors.length}
               />
-
             </section>
 
             {!session && cloudEnabled && (
-              <section
-                className="panel"
-                style={{
-                  border:
-                    '2px solid #f0b43c'
-                }}
-              >
+              <section className="panel">
                 <strong>
                   ⚠ Seu progresso não está sincronizado.
                 </strong>
 
                 <p>
                   Entre na aba Conta para salvar
-                  automaticamente suas marcações,
-                  questões e simulados.
+                  automaticamente seu progresso.
                 </p>
 
                 <button
                   className="primary"
-                  onClick={() =>
-                    setTab('conta')
-                  }
+                  onClick={() => setTab('conta')}
                 >
                   Entrar na conta
                 </button>
@@ -799,54 +833,36 @@ function App() {
             )}
 
             <section className="panel">
-
-              <h3>
-                Plano de hoje
-              </h3>
+              <h3>Plano de hoje</h3>
 
               <LessonList
                 plan={todayPlan}
                 progress={progress}
-                setItemProgress={
-                  setItemProgress
-                }
+                setItemProgress={setItemProgress}
               />
-
             </section>
-
           </>
         )}
 
         {tab === 'aulas' && (
-
           <section className="panel">
-
             <div className="section-head">
-
               <div>
                 <div className="eyebrow">
                   CRONOGRAMA
                 </div>
 
-                <h2>
-                  Aulas da semana
-                </h2>
+                <h2>Aulas da semana</h2>
               </div>
-
             </div>
 
             <div className="day-grid">
-
               {studyPlan.map(plan => (
-
                 <div
                   className="day-card"
                   key={plan.id}
                 >
-
-                  <h3>
-                    {plan.day}
-                  </h3>
+                  <h3>{plan.day}</h3>
 
                   <p className="muted">
                     {plan.theme}
@@ -855,27 +871,17 @@ function App() {
                   <LessonList
                     plan={plan}
                     progress={progress}
-                    setItemProgress={
-                      setItemProgress
-                    }
+                    setItemProgress={setItemProgress}
                   />
-
                 </div>
-
               ))}
-
             </div>
-
           </section>
-
         )}
 
         {tab === 'questoes' && (
-
           <section className="panel">
-
             <div className="section-head">
-
               <div>
                 <div className="eyebrow">
                   QUESTÕES
@@ -887,26 +893,20 @@ function App() {
               </div>
 
               <span className="counter">
-                {filteredQuestions.length}{' '}
-                disponíveis
+                {filteredQuestions.length} disponíveis
               </span>
-
             </div>
 
             <div className="filters">
-
               <label>
                 Dia
 
                 <select
                   value={dayFilter}
                   onChange={e =>
-                    setDayFilter(
-                      e.target.value
-                    )
+                    setDayFilter(e.target.value)
                   }
                 >
-
                   {[
                     'Todos',
                     'Segunda',
@@ -917,15 +917,11 @@ function App() {
                     'Sábado',
                     'Domingo'
                   ].map(d => (
-
                     <option key={d}>
                       {d}
                     </option>
-
                   ))}
-
                 </select>
-
               </label>
 
               <label>
@@ -934,49 +930,31 @@ function App() {
                 <select
                   value={themeFilter}
                   onChange={e =>
-                    setThemeFilter(
-                      e.target.value
-                    )
+                    setThemeFilter(e.target.value)
                   }
                 >
-
                   {themes.map(t => (
                     <option key={t}>
                       {t}
                     </option>
                   ))}
-
                 </select>
-
               </label>
-
             </div>
 
             <div className="question-list">
-
-              {visibleQuestions.map(
-                (q,i) => (
-
-                  <QuestionCard
-                    key={q.id}
-                    q={q}
-                    n={i + 1}
-                    state={
-                      answers[q.id]
-                    }
-                    onAnswer={
-                      answerQuestion
-                    }
-                  />
-
-                )
-              )}
-
+              {visibleQuestions.map((q,i) => (
+                <QuestionCard
+                  key={q.id}
+                  q={q}
+                  n={i + 1}
+                  state={answers[q.id]}
+                  onAnswer={answerQuestion}
+                />
+              ))}
             </div>
 
-            {questionLimit <
-              filteredQuestions.length && (
-
+            {questionLimit < filteredQuestions.length && (
               <div
                 style={{
                   display:'flex',
@@ -984,7 +962,6 @@ function App() {
                   marginTop:'20px'
                 }}
               >
-
                 <button
                   className="primary"
                   onClick={() =>
@@ -999,69 +976,44 @@ function App() {
                 >
                   Mostrar mais 10 questões
                 </button>
-
               </div>
-
             )}
-
           </section>
-
         )}
 
         {tab === 'simulado' && (
-
           <section className="panel">
-
             <div className="section-head">
-
               <div>
                 <div className="eyebrow">
                   SIMULADO
                 </div>
 
-                <h2>
-                  Simulado personalizado
-                </h2>
+                <h2>Simulado personalizado</h2>
 
                 <p className="muted">
-                  Monte uma prova com o que você
-                  já estudou. O gabarito só aparece
+                  O gabarito aparece somente
                   depois da finalização.
                 </p>
               </div>
-
             </div>
 
             {simQuestions.length === 0 ? (
-
               <>
-
                 <div className="filters">
-
                   <label>
                     Conteúdo
 
                     <select
                       value={simMode}
                       onChange={e =>
-                        setSimMode(
-                          e.target.value
-                        )
+                        setSimMode(e.target.value)
                       }
                     >
-                      <option>
-                        Semana atual
-                      </option>
-
-                      <option>
-                        Tudo estudado
-                      </option>
-
-                      <option>
-                        Só pontos fracos
-                      </option>
+                      <option>Semana atual</option>
+                      <option>Tudo estudado</option>
+                      <option>Só pontos fracos</option>
                     </select>
-
                   </label>
 
                   <label>
@@ -1071,31 +1023,16 @@ function App() {
                       value={simQuantity}
                       onChange={e =>
                         setSimQuantity(
-                          Number(
-                            e.target.value
-                          )
+                          Number(e.target.value)
                         )
                       }
                     >
-                      <option value={10}>
-                        10 questões
-                      </option>
-
-                      <option value={20}>
-                        20 questões
-                      </option>
-
-                      <option value={30}>
-                        30 questões
-                      </option>
-
-                      <option value={40}>
-                        40 questões
-                      </option>
+                      <option value={10}>10 questões</option>
+                      <option value={20}>20 questões</option>
+                      <option value={30}>30 questões</option>
+                      <option value={40}>40 questões</option>
                     </select>
-
                   </label>
-
                 </div>
 
                 <div
@@ -1105,21 +1042,17 @@ function App() {
                     gap:'12px'
                   }}
                 >
-
                   <label>
                     <input
                       type="checkbox"
-                      checked={
-                        includeAnswered
-                      }
+                      checked={includeAnswered}
                       onChange={e =>
                         setIncludeAnswered(
                           e.target.checked
                         )
                       }
                     />{' '}
-                    Permitir questões já
-                    respondidas
+                    Permitir questões já respondidas
                   </label>
 
                   <label>
@@ -1132,27 +1065,18 @@ function App() {
                         )
                       }
                     />{' '}
-                    Dar mais peso aos temas em
-                    que eu errei
+                    Dar mais peso aos temas
+                    do caderno de erros
                   </label>
-
                 </div>
 
-                <div
-                  style={{
-                    marginTop:'24px'
-                  }}
-                >
-
+                <div style={{ marginTop:'24px' }}>
                   <button
                     className="primary"
-                    onClick={
-                      createSimulation
-                    }
+                    onClick={createSimulation}
                   >
                     Criar simulado
                   </button>
-
                 </div>
 
                 {simMessage && (
@@ -1162,133 +1086,74 @@ function App() {
                 )}
 
                 {simHistory.length > 0 && (
-                  <div
-                    style={{
-                      marginTop:'35px'
-                    }}
-                  >
-
-                    <h3>
-                      Histórico de simulados
-                    </h3>
+                  <div style={{ marginTop:'35px' }}>
+                    <h3>Histórico de simulados</h3>
 
                     <div className="edital-list">
-
-                      {simHistory.map(
-                        sim => (
-
-                          <div
-                            key={sim.id}
-                            className="edital-row"
-                          >
-
-                            <div>
-
-                              <strong>
-                                {sim.correct}/
-                                {sim.total}
-                              </strong>
-
-                              <div>
-                                {sim.mode}
-                              </div>
-
-                              <small className="muted">
-                                {new Date(
-                                  sim.created_at
-                                ).toLocaleString(
-                                  'pt-BR'
-                                )}
-                              </small>
-
-                            </div>
-
+                      {simHistory.map(sim => (
+                        <div
+                          key={sim.id}
+                          className="edital-row"
+                        >
+                          <div>
                             <strong>
-                              {Number(
-                                sim.percentage
-                              ).toFixed(1)}%
+                              {sim.correct}/{sim.total}
                             </strong>
 
+                            <div>
+                              {sim.mode}
+                            </div>
+
+                            <small className="muted">
+                              {new Date(
+                                sim.created_at
+                              ).toLocaleString('pt-BR')}
+                            </small>
                           </div>
 
-                        )
-                      )}
-
+                          <strong>
+                            {Number(
+                              sim.percentage
+                            ).toFixed(1)}%
+                          </strong>
+                        </div>
+                      ))}
                     </div>
-
                   </div>
                 )}
-
               </>
-
             ) : (
-
               <>
-
-                <div
-                  className="section-head"
-                  style={{
-                    marginBottom:'20px'
-                  }}
-                >
-
+                <div className="section-head">
                   <div>
-                    <strong>
-                      {simMode}
-                    </strong>
-
+                    <strong>{simMode}</strong>
                     <p className="muted">
-                      {
-                        simQuestions.length
-                      }{' '}
-                      questões
+                      {simQuestions.length} questões
                     </p>
                   </div>
 
                   {!simFinished && (
                     <span className="counter">
-                      {
-                        Object.keys(
-                          simAnswers
-                        ).length
-                      }
-                      /
-                      {
-                        simQuestions.length
-                      }{' '}
-                      respondidas
+                      {Object.keys(simAnswers).length}/
+                      {simQuestions.length} respondidas
                     </span>
                   )}
-
                 </div>
 
                 <div className="question-list">
-
-                  {simQuestions.map(
-                    (q,i) => (
-
-                      <SimulationQuestion
-                        key={q.id}
-                        q={q}
-                        n={i + 1}
-                        selected={
-                          simAnswers[q.id]
-                        }
-                        finished={
-                          simFinished
-                        }
-                        onSelect={
-                          selectSimulationAnswer
-                        }
-                      />
-
-                    )
-                  )}
-
+                  {simQuestions.map((q,i) => (
+                    <SimulationQuestion
+                      key={q.id}
+                      q={q}
+                      n={i + 1}
+                      selected={simAnswers[q.id]}
+                      finished={simFinished}
+                      onSelect={selectSimulationAnswer}
+                    />
+                  ))}
                 </div>
 
                 {!simFinished && (
-
                   <div
                     style={{
                       marginTop:'25px',
@@ -1296,26 +1161,19 @@ function App() {
                       gap:'12px'
                     }}
                   >
-
                     <button
                       className="primary"
-                      onClick={
-                        finishSimulation
-                      }
+                      onClick={finishSimulation}
                     >
                       Finalizar simulado
                     </button>
 
                     <button
-                      onClick={
-                        resetSimulation
-                      }
+                      onClick={resetSimulation}
                     >
                       Cancelar
                     </button>
-
                   </div>
-
                 )}
 
                 {simMessage && (
@@ -1324,70 +1182,43 @@ function App() {
                   </p>
                 )}
 
-                {simFinished &&
-                  simResult && (
-
+                {simFinished && simResult && (
                   <SimulationResult
-                    result={
-                      simResult
-                    }
-                    resetSimulation={
-                      resetSimulation
-                    }
+                    result={simResult}
+                    resetSimulation={resetSimulation}
                   />
-
                 )}
-
               </>
-
             )}
-
           </section>
-
         )}
 
         {tab === 'edital' && (
-
           <section className="panel">
-
             <div className="section-head">
-
               <div>
                 <div className="eyebrow">
                   PROGRESSO
                 </div>
 
-                <h2>
-                  Edital verticalizado
-                </h2>
+                <h2>Edital verticalizado</h2>
               </div>
-
             </div>
 
             <div className="edital-list">
-
               {editalItems.map(item => (
-
                 <div
                   className="edital-row"
                   key={item.code}
                 >
-
                   <div>
-                    <strong>
-                      {item.code}
-                    </strong>
-
-                    <div>
-                      {item.title}
-                    </div>
+                    <strong>{item.code}</strong>
+                    <div>{item.title}</div>
                   </div>
 
                   <select
                     value={
-                      progress[
-                        `edital:${item.code}`
-                      ] ||
+                      progress[`edital:${item.code}`] ||
                       'Não iniciado'
                     }
                     onChange={e =>
@@ -1397,161 +1228,138 @@ function App() {
                       )
                     }
                   >
-
-                    <option>
-                      Não iniciado
-                    </option>
-
-                    <option>
-                      Em andamento
-                    </option>
-
-                    <option>
-                      Concluído
-                    </option>
-
+                    <option>Não iniciado</option>
+                    <option>Em andamento</option>
+                    <option>Concluído</option>
                   </select>
-
                 </div>
-
               ))}
-
             </div>
-
           </section>
-
         )}
 
         {tab === 'erros' && (
-
           <section className="panel">
-
             <div className="section-head">
-
               <div>
                 <div className="eyebrow">
                   REVISÃO
                 </div>
 
-                <h2>
-                  Caderno de erros
-                </h2>
+                <h2>Caderno de erros</h2>
+
+                <p className="muted">
+                  Erros de questões normais e simulados.
+                </p>
               </div>
 
+              <span className="counter">
+                {activeErrors.length} para revisar
+              </span>
             </div>
 
-            {incorrect.length === 0 ? (
-
+            {errorNotebook.length === 0 ? (
               <p className="empty">
                 Nenhum erro registrado ainda.
               </p>
-
             ) : (
-
-              incorrect.map(q => (
-
+              errorNotebook.map(item => (
                 <div
                   className="error-card"
-                  key={q.id}
+                  key={item.id}
+                  style={{
+                    opacity: item.reviewed ? 0.55 : 1
+                  }}
                 >
+                  <div className="q-meta">
+                    <span>
+                      {item.source}
+                    </span>
 
-                  <strong>
-                    {q.theme}
-                  </strong>
+                    <span>
+                      {item.theme}
+                    </span>
+                  </div>
 
                   <p>
-                    {q.statement}
+                    <strong>
+                      {item.statement}
+                    </strong>
                   </p>
 
                   <p>
                     <b>Sua resposta:</b>{' '}
-                    {
-                      answers[q.id]
-                        .selected
-                    }
+                    {item.selected_option}
                     {' • '}
                     <b>Correta:</b>{' '}
-                    {q.correct}
+                    {item.correct_option}
                   </p>
 
                   <p className="muted">
-                    {q.explanation}
+                    {item.explanation}
                   </p>
 
+                  <p>
+                    <b>Erros nessa questão:</b>{' '}
+                    {item.error_count}
+                  </p>
+
+                  <button
+                    className={item.reviewed ? '' : 'primary'}
+                    onClick={() =>
+                      markErrorReviewed(
+                        item.id,
+                        !item.reviewed
+                      )
+                    }
+                  >
+                    {item.reviewed
+                      ? 'Marcar como pendente'
+                      : 'Marcar como revisado'}
+                  </button>
                 </div>
-
               ))
-
             )}
-
           </section>
-
         )}
 
         {tab === 'conta' && (
-
           <section className="panel account-panel">
-
             <div>
-
               <div className="eyebrow">
                 SINCRONIZAÇÃO
               </div>
 
-              <h2>
-                Conta
-              </h2>
-
+              <h2>Conta</h2>
             </div>
 
-            {!cloudEnabled && (
-
-              <div className="notice">
-                O site está funcionando em modo
-                local.
-              </div>
-
-            )}
-
             {session ? (
-
               <div>
-
                 <p>
-                  ☁ Sincronizado como
-                  {' '}
-                  <b>
-                    {session.user.email}
-                  </b>
+                  ☁ Sincronizado como{' '}
+                  <b>{session.user.email}</b>
                 </p>
 
                 <p className="muted">
-                  Neste navegador, o Supabase
-                  mantém sua sessão salva
-                  automaticamente.
+                  Neste navegador, sua sessão
+                  permanece salva automaticamente.
                 </p>
 
                 <button onClick={signOut}>
                   Sair
                 </button>
-
               </div>
-
             ) : (
-
               <form
                 onSubmit={authSubmit}
                 className="auth-form"
               >
-
                 <input
                   type="email"
                   placeholder="Seu e-mail"
                   value={email}
                   onChange={e =>
-                    setEmail(
-                      e.target.value
-                    )
+                    setEmail(e.target.value)
                   }
                   required
                 />
@@ -1561,9 +1369,7 @@ function App() {
                   placeholder="Senha"
                   value={password}
                   onChange={e =>
-                    setPassword(
-                      e.target.value
-                    )
+                    setPassword(e.target.value)
                   }
                   minLength="6"
                   required
@@ -1599,34 +1405,21 @@ function App() {
                     {message}
                   </p>
                 )}
-
               </form>
-
             )}
-
           </section>
-
         )}
 
       </main>
-
     </div>
   )
 }
 
-function Stat({
-  label,
-  value
-}) {
+function Stat({ label, value }) {
   return (
     <div className="stat">
-      <span>
-        {label}
-      </span>
-
-      <strong>
-        {value}
-      </strong>
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   )
 }
@@ -1638,51 +1431,33 @@ function LessonList({
 }) {
   return (
     <div className="lessons">
+      {plan.lessons.map((lesson,i) => {
+        const key = `lesson:${plan.id}:${i}`
+        const done =
+          progress[key] === 'Concluído'
 
-      {plan.lessons.map(
-        (lesson,i) => {
-
-          const key =
-            `lesson:${plan.id}:${i}`
-
-          const done =
-            progress[key] ===
-            'Concluído'
-
-          return (
-            <label
-              className={
-                `lesson ${
-                  done
-                    ? 'done'
-                    : ''
-                }`
+        return (
+          <label
+            className={`lesson ${done ? 'done' : ''}`}
+            key={key}
+          >
+            <input
+              type="checkbox"
+              checked={done}
+              onChange={e =>
+                setItemProgress(
+                  key,
+                  e.target.checked
+                    ? 'Concluído'
+                    : 'Não iniciado'
+                )
               }
-              key={key}
-            >
+            />
 
-              <input
-                type="checkbox"
-                checked={done}
-                onChange={e =>
-                  setItemProgress(
-                    key,
-                    e.target.checked
-                      ? 'Concluído'
-                      : 'Não iniciado'
-                  )
-                }
-              />
-
-              <span>
-                {lesson}
-              </span>
-
-            </label>
-          )
-        }
-      )}
-
+            <span>{lesson}</span>
+          </label>
+        )
+      })}
     </div>
   )
 }
@@ -1695,86 +1470,54 @@ function QuestionCard({
 }) {
   return (
     <article className="question-card">
-
       <div className="q-meta">
-
-        <span>
-          Questão {n}
-        </span>
-
-        <span>
-          {q.day} • {q.theme}
-        </span>
-
+        <span>Questão {n}</span>
+        <span>{q.day} • {q.theme}</span>
       </div>
 
-      <h3>
-        {q.statement}
-      </h3>
+      <h3>{q.statement}</h3>
 
       <div className="options">
-
-        {Object.entries(
-          q.options
-        ).map(([key,text]) => (
-
-          <button
-            key={key}
-            disabled={
-              Boolean(state)
-            }
-            onClick={() =>
-              onAnswer(q,key)
-            }
-            className={
-              state
-                ? key === q.correct
-                  ? 'correct'
-                  : state.selected === key
-                    ? 'wrong'
-                    : ''
-                : ''
-            }
-          >
-            <b>
-              {key}
-            </b>{' '}
-            {text}
-          </button>
-
-        ))}
-
+        {Object.entries(q.options).map(
+          ([key,text]) => (
+            <button
+              key={key}
+              disabled={Boolean(state)}
+              onClick={() => onAnswer(q,key)}
+              className={
+                state
+                  ? key === q.correct
+                    ? 'correct'
+                    : state.selected === key
+                      ? 'wrong'
+                      : ''
+                  : ''
+              }
+            >
+              <b>{key}</b> {text}
+            </button>
+          )
+        )}
       </div>
 
       {state && (
-
         <div
-          className={
-            `feedback ${
-              state.correct
-                ? 'ok'
-                : 'bad'
-            }`
-          }
+          className={`feedback ${
+            state.correct ? 'ok' : 'bad'
+          }`}
         >
-
           <b>
             {state.correct
               ? 'Correto.'
               : 'Revisar.'}
           </b>{' '}
-
           {q.explanation}
-
         </div>
-
       )}
 
       <div className="source">
-        {q.sourceType} •{' '}
-        {q.sourceLabel}
+        {q.sourceType} • {q.sourceLabel}
       </div>
-
     </article>
   )
 }
@@ -1788,88 +1531,52 @@ function SimulationQuestion({
 }) {
   return (
     <article className="question-card">
-
       <div className="q-meta">
-
-        <span>
-          Questão {n}
-        </span>
-
-        <span>
-          {q.theme}
-        </span>
-
+        <span>Questão {n}</span>
+        <span>{q.theme}</span>
       </div>
 
-      <h3>
-        {q.statement}
-      </h3>
+      <h3>{q.statement}</h3>
 
       <div className="options">
+        {Object.entries(q.options).map(
+          ([key,text]) => {
+            let className = ''
 
-        {Object.entries(
-          q.options
-        ).map(([key,text]) => {
-
-          let className = ''
-
-          if (finished) {
-            if (
-              key === q.correct
-            ) {
-              className =
-                'correct'
-            } else if (
-              selected === key
-            ) {
-              className =
-                'wrong'
+            if (finished) {
+              if (key === q.correct) {
+                className = 'correct'
+              } else if (selected === key) {
+                className = 'wrong'
+              }
+            } else if (selected === key) {
+              className = 'selected'
             }
-          } else if (
-            selected === key
-          ) {
-            className =
-              'selected'
+
+            return (
+              <button
+                key={key}
+                className={className}
+                onClick={() =>
+                  onSelect(q.id,key)
+                }
+                disabled={finished}
+              >
+                <b>{key}</b> {text}
+              </button>
+            )
           }
-
-          return (
-            <button
-              key={key}
-              className={
-                className
-              }
-              onClick={() =>
-                onSelect(
-                  q.id,
-                  key
-                )
-              }
-              disabled={
-                finished
-              }
-            >
-              <b>
-                {key}
-              </b>{' '}
-              {text}
-            </button>
-          )
-        })}
-
+        )}
       </div>
 
       {finished && (
-
         <div
-          className={
-            `feedback ${
-              selected === q.correct
-                ? 'ok'
-                : 'bad'
-            }`
-          }
+          className={`feedback ${
+            selected === q.correct
+              ? 'ok'
+              : 'bad'
+          }`}
         >
-
           <b>
             {selected === q.correct
               ? 'Correto.'
@@ -1877,11 +1584,8 @@ function SimulationQuestion({
           </b>{' '}
 
           {q.explanation}
-
         </div>
-
       )}
-
     </article>
   )
 }
@@ -1893,18 +1597,14 @@ function SimulationResult({
   return (
     <div
       className="panel"
-      style={{
-        marginTop:'30px'
-      }}
+      style={{ marginTop:'30px' }}
     >
-
       <div className="eyebrow">
         RESULTADO
       </div>
 
       <h2>
-        {result.correct}/
-        {result.total}
+        {result.correct}/{result.total}
         {' — '}
         {result.percentage}%
       </h2>
@@ -1914,60 +1614,41 @@ function SimulationResult({
       </h3>
 
       <div className="edital-list">
-
         {Object.entries(
           result.themeStats
-        ).map(
-          ([theme,stats]) => {
-
-            const pct =
-              Math.round(
-                stats.correct /
-                stats.total *
-                100
-              )
-
-            return (
-              <div
-                className="edital-row"
-                key={theme}
-              >
-
-                <div>
-                  {theme}
-                </div>
-
-                <strong>
-                  {stats.correct}/
-                  {stats.total}
-                  {' • '}
-                  {pct}%
-                </strong>
-
-              </div>
+        ).map(([theme,stats]) => {
+          const pct =
+            Math.round(
+              stats.correct /
+              stats.total *
+              100
             )
-          }
-        )}
 
+          return (
+            <div
+              className="edital-row"
+              key={theme}
+            >
+              <div>{theme}</div>
+
+              <strong>
+                {stats.correct}/{stats.total}
+                {' • '}
+                {pct}%
+              </strong>
+            </div>
+          )
+        })}
       </div>
 
-      <div
-        style={{
-          marginTop:'20px'
-        }}
-      >
-
+      <div style={{ marginTop:'20px' }}>
         <button
           className="primary"
-          onClick={
-            resetSimulation
-          }
+          onClick={resetSimulation}
         >
           Criar outro simulado
         </button>
-
       </div>
-
     </div>
   )
 }
