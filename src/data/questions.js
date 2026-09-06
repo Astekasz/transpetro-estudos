@@ -1030,6 +1030,81 @@ export const questions = [
     ['a energia flui e se dissipa, enquanto a matéria é reciclada','energia e matéria são recicladas integralmente','energia é reciclada e matéria se dissipa','ambas fluem sem perdas','ambas permanecem imóveis'],
     'A',
     'Energia apresenta fluxo; matéria participa de ciclos.'
+  ),
+
+
+  // =========================================================
+  // REFORÇO ADAPTATIVO — TEMAS JÁ ESTUDADOS
+  // =========================================================
+
+  Q('q141','Segunda','Revisão + Ecologia',
+    'Uma refinaria possui séries históricas e estudos consolidados demonstrando que determinada concentração de efluente causa mortalidade de organismos aquáticos. Antes de renovar a licença, o órgão ambiental exige redução dessa concentração a níveis seguros. A medida concretiza predominantemente o princípio da',
+    ['reparação integral','precaução','prevenção','participação','solidariedade intergeracional'],
+    'C',
+    'Há conhecimento científico suficiente sobre o risco e sobre a relação entre a exposição e o dano. Nessa situação, a atuação antecipada é preventiva, e não fundada em mera incerteza.'
+  ),
+
+  Q('q142','Segunda','Revisão + Ecologia',
+    'Estudos iniciais indicam que um novo composto persistente pode produzir efeitos reprodutivos graves em fauna marinha, mas ainda não existe consenso sobre o limiar de exposição capaz de causar o dano. Diante desse cenário, uma restrição temporária e proporcional ao uso do composto se fundamenta principalmente na',
+    ['correção na fonte','responsabilidade objetiva','prevenção','reparação integral','precaução'],
+    'E',
+    'A possibilidade de dano grave está acompanhada de incerteza científica relevante. A precaução permite agir antes da certeza conclusiva, com medidas proporcionais ao risco.'
+  ),
+
+  Q('q143','Segunda','Revisão + Ecologia',
+    'Ao comparar prevenção e precaução no Direito Ambiental, a distinção conceitualmente adequada é a de que a',
+    ['precaução somente pode ser aplicada depois da ocorrência do dano','prevenção dispensa qualquer evidência sobre a existência de risco','prevenção e precaução são expressões equivalentes e possuem o mesmo pressuposto','prevenção se volta a riscos conhecidos, enquanto a precaução orienta decisões diante de incerteza científica relevante','precaução exige certeza científica maior do que a prevenção'],
+    'D',
+    'A prevenção pressupõe risco identificável ou conhecido; a precaução ganha relevo quando persiste incerteza científica sobre dano potencialmente relevante.'
+  ),
+
+  Q('q144','Segunda','Revisão + Ecologia',
+    'Em uma avaliação ambiental, a ausência de certeza científica absoluta sobre a extensão de um possível dano grave foi utilizada como argumento para não adotar nenhuma medida protetiva. Essa justificativa é incompatível, sobretudo, com o princípio da',
+    ['reparação integral','precaução','cooperação','usuário-pagador','protetor-recebedor'],
+    'B',
+    'A precaução busca evitar que a incerteza científica seja usada, por si só, como motivo para adiar medidas proporcionais diante de ameaça séria ao ambiente.'
+  ),
+
+  Q('q145','Segunda','Revisão + Ecologia',
+    'Em uma lagoa costeira, a redução intensa de um peixe predador foi seguida pelo aumento de pequenos consumidores e pela diminuição da biomassa de seus recursos alimentares. A melhor interpretação ecológica para esse conjunto de mudanças é a ocorrência de',
+    ['cascata trófica causada por efeitos indiretos entre níveis alimentares','sucessão primária decorrente da perda de substrato','isolamento reprodutivo entre as populações da lagoa','aumento da eficiência de transferência de energia em todos os níveis','interrupção dos ciclos biogeoquímicos pela ausência de decompositores'],
+    'A',
+    'A alteração no predador repercutiu sobre níveis inferiores da teia alimentar. Esse encadeamento de efeitos caracteriza uma cascata trófica.'
+  ),
+
+  Q('q146','Terça','Ecossistemas e biodiversidade',
+    'Dois fragmentos florestais têm a mesma área total, mas um deles possui formato muito alongado e o outro, aproximadamente circular. Mantidas as demais condições, espera-se que o fragmento alongado apresente',
+    ['menor proporção de borda e maior área nuclear','ausência de alterações microclimáticas nas margens','maior proporção de área sujeita a efeito de borda','menor contato entre o interior e a matriz adjacente','necessariamente maior riqueza de espécies, independentemente do contexto'],
+    'C',
+    'Formatos alongados aumentam a relação perímetro/área. Assim, uma parcela maior do fragmento fica próxima às margens e sujeita a efeitos de borda.'
+  ),
+
+  Q('q147','Quarta','Ciclos biogeoquímicos',
+    'Após aplicação excessiva de fertilizante nitrogenado, análises de água subterrânea mostram aumento de nitrato. A característica que melhor explica a facilidade de transporte desse íon pelo perfil do solo é sua',
+    ['forte retenção obrigatória pelas partículas do solo','elevada solubilidade e mobilidade em água','conversão imediata em nitrogênio gasoso em qualquer condição','incorporação exclusiva à biomassa vegetal','insolubilidade em ambientes agrícolas'],
+    'B',
+    'O nitrato é bastante solúvel e pode ser lixiviado com a água que percola o solo, alcançando águas subterrâneas.'
+  ),
+
+  Q('q148','Quarta','Ciclos biogeoquímicos',
+    'Em um reservatório enriquecido por fósforo e nitrogênio, ocorre floração de algas seguida de grande mortalidade dessa biomassa. Na etapa posterior, o efeito mais diretamente associado à decomposição aeróbia intensa é o(a)',
+    ['aumento permanente do oxigênio dissolvido','bloqueio da atividade microbiana','remoção completa dos nutrientes da água','conversão de todo fósforo em fase gasosa','consumo de oxigênio dissolvido, com possibilidade de hipóxia'],
+    'E',
+    'A decomposição microbiana da biomassa utiliza oxigênio. Quando a demanda supera a reposição, o corpo d’água pode desenvolver hipóxia ou anoxia.'
+  ),
+
+  Q('q149','Sexta','Conservação e serviços ambientais',
+    'Uma população ameaçada permanece em seu habitat natural, porém seus fragmentos estão cada vez mais isolados. Para reduzir os efeitos do isolamento sem retirar os indivíduos do ambiente, a medida de conservação mais diretamente indicada é',
+    ['restabelecer conectividade funcional por corredores ou áreas de ligação','transferir toda a população para um banco de germoplasma','substituir a vegetação nativa por uma matriz homogênea','impedir qualquer deslocamento entre fragmentos','priorizar exclusivamente a conservação ex situ'],
+    'A',
+    'A conectividade entre fragmentos favorece dispersão e fluxo gênico, reduzindo consequências do isolamento enquanto mantém a conservação in situ.'
+  ),
+
+  Q('q150','Sexta','Conservação e serviços ambientais',
+    'Um programa de manejo estabelece metas de recuperação, monitora indicadores ecológicos e, a cada ciclo, altera as intervenções conforme os resultados observados. Essa abordagem caracteriza principalmente',
+    ['preservação sem intervenção e sem monitoramento','compensação ambiental desvinculada de resultados','manejo estático baseado em uma decisão inicial imutável','manejo adaptativo, no qual monitoramento e aprendizagem retroalimentam as decisões','conservação ex situ obrigatória de todas as espécies'],
+    'D',
+    'No manejo adaptativo, as ações são tratadas como parte de um processo de aprendizagem: os resultados monitorados orientam ajustes nas decisões seguintes.'
   )
 
 ]
