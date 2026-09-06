@@ -3,55 +3,151 @@ import { cloudEnabled, supabase } from './supabase'
 import { studyPlan, editalItems } from './data/studyPlan'
 import { questions } from './data/questions'
 
-const weekDayMap = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado']
+const weekDayMap = [
+  'Domingo',
+  'Segunda',
+  'Terça',
+  'Quarta',
+  'Quinta',
+  'Sexta',
+  'Sábado'
+]
+
+const weekStudyDays = [
+  'Segunda',
+  'Terça',
+  'Quarta',
+  'Quinta',
+  'Sexta',
+  'Sábado'
+]
+
+function shuffle(array) {
+  const copy = [...array]
+
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+
+  return copy
+}
 
 function App() {
   const [tab, setTab] = useState('inicio')
+
   const [session, setSession] = useState(null)
+
   const [authMode, setAuthMode] = useState('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
+
   const [progress, setProgress] = useState({})
   const [answers, setAnswers] = useState({})
+
   const [dayFilter, setDayFilter] = useState('Todos')
   const [themeFilter, setThemeFilter] = useState('Todos')
   const [questionLimit, setQuestionLimit] = useState(10)
 
+  // SIMULADO
+  const [simMode, setSimMode] = useState('Semana atual')
+  const [simQuantity, setSimQuantity] = useState(20)
+  const [includeAnswered, setIncludeAnswered] = useState(true)
+  const [weakWeight, setWeakWeight] = useState(true)
+
+  const [simQuestions, setSimQuestions] = useState([])
+  const [simAnswers, setSimAnswers] = useState({})
+  const [simFinished, setSimFinished] = useState(false)
+  const [simResult, setSimResult] = useState(null)
+  const [simMessage, setSimMessage] = useState('')
+  const [simHistory, setSimHistory] = useState([])
+
   const todayName = weekDayMap[new Date().getDay()]
-  const todayPlan = studyPlan.find(x => x.day === todayName) || studyPlan[0]
+
+  const todayPlan =
+    studyPlan.find(x => x.day === todayName) ||
+    studyPlan[0]
+
+  // =========================================================
+  // LOGIN / SESSÃO
+  // =========================================================
 
   useEffect(() => {
     if (!cloudEnabled) {
-      setProgress(JSON.parse(localStorage.getItem('tp_progress') || '{}'))
-      setAnswers(JSON.parse(localStorage.getItem('tp_answers') || '{}'))
+      setProgress(
+        JSON.parse(
+          localStorage.getItem('tp_progress') || '{}'
+        )
+      )
+
+      setAnswers(
+        JSON.parse(
+          localStorage.getItem('tp_answers') || '{}'
+        )
+      )
+
+      setSimHistory(
+        JSON.parse(
+          localStorage.getItem('tp_sim_history') || '[]'
+        )
+      )
+
       return
     }
 
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+    })
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => setSession(nextSession)
-    )
+    const { data: listener } =
+      supabase.auth.onAuthStateChange(
+        (_event, nextSession) => {
+          setSession(nextSession)
+        }
+      )
 
-    return () => listener.subscription.unsubscribe()
+    return () =>
+      listener.subscription.unsubscribe()
   }, [])
 
   useEffect(() => {
     if (!cloudEnabled || !session?.user) return
+
     loadCloudState()
   }, [session])
 
   async function loadCloudState() {
     const userId = session.user.id
 
-    const [{ data: p }, { data: a }] = await Promise.all([
-      supabase.from('progress').select('*').eq('user_id', userId),
-      supabase.from('answers').select('*').eq('user_id', userId)
+    const [
+      { data: p },
+      { data: a },
+      { data: sims }
+    ] = await Promise.all([
+      supabase
+        .from('progress')
+        .select('*')
+        .eq('user_id', userId),
+
+      supabase
+        .from('answers')
+        .select('*')
+        .eq('user_id', userId),
+
+      supabase
+        .from('simulation_results')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20)
     ])
 
     const pMap = Object.fromEntries(
-      (p || []).map(row => [row.item_key, row.status])
+      (p || []).map(row => [
+        row.item_key,
+        row.status
+      ])
     )
 
     const aMap = Object.fromEntries(
@@ -66,6 +162,7 @@ function App() {
 
     setProgress(pMap)
     setAnswers(aMap)
+    setSimHistory(sims || [])
   }
 
   async function authSubmit(e) {
@@ -73,14 +170,22 @@ function App() {
     setMessage('')
 
     if (!cloudEnabled) {
-      setMessage('Configure o Supabase para ativar login e sincronização.')
+      setMessage(
+        'Configure o Supabase para ativar login e sincronização.'
+      )
       return
     }
 
     const result =
       authMode === 'login'
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password })
+        ? await supabase.auth.signInWithPassword({
+            email,
+            password
+          })
+        : await supabase.auth.signUp({
+            email,
+            password
+          })
 
     if (result.error) {
       setMessage(result.error.message)
@@ -88,21 +193,35 @@ function App() {
       setMessage(
         authMode === 'login'
           ? 'Login realizado.'
-          : 'Conta criada. Se o Supabase pedir confirmação, verifique seu e-mail.'
+          : 'Conta criada. Se necessário, confirme pelo e-mail.'
       )
     }
   }
 
   async function signOut() {
-    if (cloudEnabled) await supabase.auth.signOut()
+    if (cloudEnabled) {
+      await supabase.auth.signOut()
+    }
   }
 
+  // =========================================================
+  // PROGRESSO
+  // =========================================================
+
   async function setItemProgress(key, status) {
-    const next = { ...progress, [key]: status }
+    const next = {
+      ...progress,
+      [key]: status
+    }
+
     setProgress(next)
 
     if (!cloudEnabled || !session?.user) {
-      localStorage.setItem('tp_progress', JSON.stringify(next))
+      localStorage.setItem(
+        'tp_progress',
+        JSON.stringify(next)
+      )
+
       return
     }
 
@@ -120,6 +239,10 @@ function App() {
       )
   }
 
+  // =========================================================
+  // QUESTÕES NORMAIS
+  // =========================================================
+
   async function answerQuestion(q, selected) {
     const entry = {
       selected,
@@ -134,7 +257,11 @@ function App() {
     setAnswers(next)
 
     if (!cloudEnabled || !session?.user) {
-      localStorage.setItem('tp_answers', JSON.stringify(next))
+      localStorage.setItem(
+        'tp_answers',
+        JSON.stringify(next)
+      )
+
       return
     }
 
@@ -156,96 +283,462 @@ function App() {
   }
 
   const themes = useMemo(
-    () => ['Todos', ...new Set(questions.map(q => q.theme))],
+    () => [
+      'Todos',
+      ...new Set(
+        questions.map(q => q.theme)
+      )
+    ],
     []
   )
 
-  const filteredQuestions = questions.filter(
-    q =>
-      (dayFilter === 'Todos' || q.day === dayFilter) &&
-      (themeFilter === 'Todos' || q.theme === themeFilter)
-  )
+  const filteredQuestions =
+    questions.filter(
+      q =>
+        (
+          dayFilter === 'Todos' ||
+          q.day === dayFilter
+        ) &&
+        (
+          themeFilter === 'Todos' ||
+          q.theme === themeFilter
+        )
+    )
 
-  const visibleQuestions = filteredQuestions.slice(0, questionLimit)
+  const visibleQuestions =
+    filteredQuestions.slice(
+      0,
+      questionLimit
+    )
 
   useEffect(() => {
     setQuestionLimit(10)
   }, [dayFilter, themeFilter])
 
-  const incorrect = questions.filter(
-    q => answers[q.id] && !answers[q.id].correct
-  )
+  const incorrect =
+    questions.filter(
+      q =>
+        answers[q.id] &&
+        !answers[q.id].correct
+    )
 
-  const answeredCount = Object.keys(answers).length
+  const answeredCount =
+    Object.keys(answers).length
 
-  const correctCount = Object.values(answers).filter(
-    a => a.correct
-  ).length
+  const correctCount =
+    Object.values(answers).filter(
+      a => a.correct
+    ).length
 
-  const finished = Object.values(progress).filter(
-    v => v === 'Concluído'
-  ).length
+  const finished =
+    Object.values(progress).filter(
+      v => v === 'Concluído'
+    ).length
+
+  // =========================================================
+  // SIMULADO
+  // =========================================================
+
+  const studiedDays = useMemo(() => {
+    const result = new Set()
+
+    studyPlan.forEach(plan => {
+      const studied =
+        plan.lessons.some(
+          (_, i) =>
+            progress[
+              `lesson:${plan.id}:${i}`
+            ] === 'Concluído'
+        )
+
+      if (studied) {
+        result.add(plan.day)
+      }
+    })
+
+    return result
+  }, [progress])
+
+  const weakThemes = useMemo(() => {
+    return new Set(
+      questions
+        .filter(
+          q =>
+            answers[q.id] &&
+            !answers[q.id].correct
+        )
+        .map(q => q.theme)
+    )
+  }, [answers])
+
+  function getSimulationPool() {
+    let pool = []
+
+    if (simMode === 'Semana atual') {
+      pool = questions.filter(
+        q =>
+          weekStudyDays.includes(q.day)
+      )
+    }
+
+    if (simMode === 'Tudo estudado') {
+      if (studiedDays.size > 0) {
+        pool = questions.filter(
+          q =>
+            studiedDays.has(q.day)
+        )
+      } else {
+        pool = questions.filter(
+          q =>
+            weekStudyDays.includes(q.day)
+        )
+      }
+    }
+
+    if (simMode === 'Só pontos fracos') {
+      if (weakThemes.size > 0) {
+        pool = questions.filter(
+          q =>
+            weakThemes.has(q.theme)
+        )
+      } else {
+        pool = questions.filter(
+          q =>
+            weekStudyDays.includes(q.day)
+        )
+      }
+    }
+
+    if (!includeAnswered) {
+      pool = pool.filter(
+        q => !answers[q.id]
+      )
+    }
+
+    return pool
+  }
+
+  function weightedQuestionOrder(pool) {
+    if (
+      !weakWeight ||
+      weakThemes.size === 0
+    ) {
+      return shuffle(pool)
+    }
+
+    const weighted = []
+
+    pool.forEach(q => {
+      weighted.push(q)
+
+      if (weakThemes.has(q.theme)) {
+        weighted.push(q)
+        weighted.push(q)
+      }
+    })
+
+    const shuffled =
+      shuffle(weighted)
+
+    const unique = []
+    const ids = new Set()
+
+    for (const q of shuffled) {
+      if (!ids.has(q.id)) {
+        ids.add(q.id)
+        unique.push(q)
+      }
+    }
+
+    return unique
+  }
+
+  function createSimulation() {
+    const pool =
+      getSimulationPool()
+
+    if (pool.length === 0) {
+      setSimMessage(
+        'Não há questões disponíveis com esses filtros.'
+      )
+
+      return
+    }
+
+    const ordered =
+      weightedQuestionOrder(pool)
+
+    const selected =
+      ordered.slice(
+        0,
+        Math.min(
+          simQuantity,
+          ordered.length
+        )
+      )
+
+    setSimQuestions(selected)
+    setSimAnswers({})
+    setSimFinished(false)
+    setSimResult(null)
+
+    if (
+      selected.length <
+      simQuantity
+    ) {
+      setSimMessage(
+        `O banco possui ${selected.length} questões disponíveis para esses critérios.`
+      )
+    } else {
+      setSimMessage('')
+    }
+  }
+
+  function selectSimulationAnswer(
+    questionId,
+    option
+  ) {
+    if (simFinished) return
+
+    setSimAnswers(prev => ({
+      ...prev,
+      [questionId]: option
+    }))
+  }
+
+  async function finishSimulation() {
+    if (
+      Object.keys(simAnswers).length <
+      simQuestions.length
+    ) {
+      setSimMessage(
+        'Responda todas as questões antes de finalizar o simulado.'
+      )
+
+      return
+    }
+
+    let correct = 0
+
+    const themeStats = {}
+
+    const details =
+      simQuestions.map(q => {
+        const selected =
+          simAnswers[q.id]
+
+        const isCorrect =
+          selected === q.correct
+
+        if (isCorrect) {
+          correct++
+        }
+
+        if (!themeStats[q.theme]) {
+          themeStats[q.theme] = {
+            total: 0,
+            correct: 0
+          }
+        }
+
+        themeStats[q.theme].total++
+
+        if (isCorrect) {
+          themeStats[q.theme].correct++
+        }
+
+        return {
+          question_id: q.id,
+          theme: q.theme,
+          selected,
+          correct: q.correct,
+          is_correct: isCorrect
+        }
+      })
+
+    const percentage =
+      Number(
+        (
+          correct /
+          simQuestions.length *
+          100
+        ).toFixed(1)
+      )
+
+    const result = {
+      correct,
+      total: simQuestions.length,
+      percentage,
+      themeStats,
+      details
+    }
+
+    setSimResult(result)
+    setSimFinished(true)
+    setSimMessage('')
+
+    await saveSimulationResult(result)
+  }
+
+  async function saveSimulationResult(result) {
+    const record = {
+      mode: simMode,
+      total: result.total,
+      correct: result.correct,
+      percentage: result.percentage,
+      details: result.details
+    }
+
+    if (!cloudEnabled || !session?.user) {
+      const existing =
+        JSON.parse(
+          localStorage.getItem(
+            'tp_sim_history'
+          ) || '[]'
+        )
+
+      const localRecord = {
+        ...record,
+        id: crypto.randomUUID(),
+        created_at:
+          new Date().toISOString()
+      }
+
+      const next = [
+        localRecord,
+        ...existing
+      ].slice(0, 20)
+
+      localStorage.setItem(
+        'tp_sim_history',
+        JSON.stringify(next)
+      )
+
+      setSimHistory(next)
+
+      return
+    }
+
+    const { data, error } =
+      await supabase
+        .from('simulation_results')
+        .insert({
+          ...record,
+          user_id: session.user.id
+        })
+        .select()
+        .single()
+
+    if (!error && data) {
+      setSimHistory(prev => [
+        data,
+        ...prev
+      ].slice(0, 20))
+    }
+  }
+
+  function resetSimulation() {
+    setSimQuestions([])
+    setSimAnswers({})
+    setSimFinished(false)
+    setSimResult(null)
+    setSimMessage('')
+  }
+
+  // =========================================================
+  // INTERFACE
+  // =========================================================
 
   return (
     <div className="app-shell">
 
       <header className="topbar">
+
         <div>
-          <div className="eyebrow">TRANSPETRO 2026</div>
-          <h1>Análise Ambiental</h1>
+          <div className="eyebrow">
+            TRANSPETRO 2026
+          </div>
+
+          <h1>
+            Análise Ambiental
+          </h1>
         </div>
 
         <div className="sync-pill">
           {cloudEnabled
             ? session
-              ? '☁ Sincronizado'
-              : '☁ Supabase pronto'
+              ? `☁ Sincronizado • ${session.user.email}`
+              : '⚠ Entre na conta para sincronizar'
             : '● Modo local'}
         </div>
+
       </header>
 
       <nav className="nav">
+
         {[
           ['inicio','Início'],
           ['aulas','Aulas'],
           ['questoes','Questões'],
+          ['simulado','Simulado'],
           ['edital','Edital'],
           ['erros','Caderno de erros'],
           ['conta','Conta']
         ].map(([id,label]) => (
+
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={tab === id ? 'active' : ''}
+            className={
+              tab === id
+                ? 'active'
+                : ''
+            }
           >
             {label}
           </button>
+
         ))}
+
       </nav>
 
       <main>
 
         {tab === 'inicio' && (
           <>
+
             <section className="hero-card">
+
               <div>
+
                 <div className="eyebrow">
-                  ESTUDAR HOJE • {todayName.toUpperCase()}
+                  ESTUDAR HOJE •{' '}
+                  {todayName.toUpperCase()}
                 </div>
 
-                <h2>{todayPlan.theme}</h2>
-                <p>{todayPlan.block}</p>
+                <h2>
+                  {todayPlan.theme}
+                </h2>
+
+                <p>
+                  {todayPlan.block}
+                </p>
+
               </div>
 
               <button
                 className="primary"
-                onClick={() => setTab('aulas')}
+                onClick={() =>
+                  setTab('aulas')
+                }
               >
                 Estudar hoje →
               </button>
+
             </section>
 
             <section className="stats-grid">
+
               <Stat
                 label="Itens concluídos"
                 value={`${finished}/${editalItems.length}`}
@@ -260,7 +753,11 @@ function App() {
                 label="Aproveitamento"
                 value={
                   answeredCount
-                    ? `${Math.round(correctCount / answeredCount * 100)}%`
+                    ? `${Math.round(
+                        correctCount /
+                        answeredCount *
+                        100
+                      )}%`
                     : '—'
                 }
               />
@@ -269,37 +766,87 @@ function App() {
                 label="Erros para revisar"
                 value={incorrect.length}
               />
+
             </section>
 
+            {!session && cloudEnabled && (
+              <section
+                className="panel"
+                style={{
+                  border:
+                    '2px solid #f0b43c'
+                }}
+              >
+                <strong>
+                  ⚠ Seu progresso não está sincronizado.
+                </strong>
+
+                <p>
+                  Entre na aba Conta para salvar
+                  automaticamente suas marcações,
+                  questões e simulados.
+                </p>
+
+                <button
+                  className="primary"
+                  onClick={() =>
+                    setTab('conta')
+                  }
+                >
+                  Entrar na conta
+                </button>
+              </section>
+            )}
+
             <section className="panel">
-              <h3>Plano de hoje</h3>
+
+              <h3>
+                Plano de hoje
+              </h3>
 
               <LessonList
                 plan={todayPlan}
                 progress={progress}
-                setItemProgress={setItemProgress}
+                setItemProgress={
+                  setItemProgress
+                }
               />
+
             </section>
+
           </>
         )}
 
         {tab === 'aulas' && (
+
           <section className="panel">
 
             <div className="section-head">
+
               <div>
-                <div className="eyebrow">CRONOGRAMA</div>
-                <h2>Aulas da semana</h2>
+                <div className="eyebrow">
+                  CRONOGRAMA
+                </div>
+
+                <h2>
+                  Aulas da semana
+                </h2>
               </div>
+
             </div>
 
             <div className="day-grid">
+
               {studyPlan.map(plan => (
+
                 <div
                   className="day-card"
                   key={plan.id}
                 >
-                  <h3>{plan.day}</h3>
+
+                  <h3>
+                    {plan.day}
+                  </h3>
 
                   <p className="muted">
                     {plan.theme}
@@ -308,27 +855,42 @@ function App() {
                   <LessonList
                     plan={plan}
                     progress={progress}
-                    setItemProgress={setItemProgress}
+                    setItemProgress={
+                      setItemProgress
+                    }
                   />
+
                 </div>
+
               ))}
+
             </div>
 
           </section>
+
         )}
 
         {tab === 'questoes' && (
+
           <section className="panel">
 
             <div className="section-head">
+
               <div>
-                <div className="eyebrow">QUESTÕES</div>
-                <h2>Escolha por dia ou tema</h2>
+                <div className="eyebrow">
+                  QUESTÕES
+                </div>
+
+                <h2>
+                  Escolha por dia ou tema
+                </h2>
               </div>
 
               <span className="counter">
-                {filteredQuestions.length} disponíveis
+                {filteredQuestions.length}{' '}
+                disponíveis
               </span>
+
             </div>
 
             <div className="filters">
@@ -338,8 +900,13 @@ function App() {
 
                 <select
                   value={dayFilter}
-                  onChange={e => setDayFilter(e.target.value)}
+                  onChange={e =>
+                    setDayFilter(
+                      e.target.value
+                    )
+                  }
                 >
+
                   {[
                     'Todos',
                     'Segunda',
@@ -350,10 +917,13 @@ function App() {
                     'Sábado',
                     'Domingo'
                   ].map(d => (
+
                     <option key={d}>
                       {d}
                     </option>
+
                   ))}
+
                 </select>
 
               </label>
@@ -363,13 +933,19 @@ function App() {
 
                 <select
                   value={themeFilter}
-                  onChange={e => setThemeFilter(e.target.value)}
+                  onChange={e =>
+                    setThemeFilter(
+                      e.target.value
+                    )
+                  }
                 >
+
                   {themes.map(t => (
                     <option key={t}>
                       {t}
                     </option>
                   ))}
+
                 </select>
 
               </label>
@@ -378,19 +954,29 @@ function App() {
 
             <div className="question-list">
 
-              {visibleQuestions.map((q,i) => (
-                <QuestionCard
-                  key={q.id}
-                  q={q}
-                  n={i + 1}
-                  state={answers[q.id]}
-                  onAnswer={answerQuestion}
-                />
-              ))}
+              {visibleQuestions.map(
+                (q,i) => (
+
+                  <QuestionCard
+                    key={q.id}
+                    q={q}
+                    n={i + 1}
+                    state={
+                      answers[q.id]
+                    }
+                    onAnswer={
+                      answerQuestion
+                    }
+                  />
+
+                )
+              )}
 
             </div>
 
-            {questionLimit < filteredQuestions.length && (
+            {questionLimit <
+              filteredQuestions.length && (
+
               <div
                 style={{
                   display:'flex',
@@ -415,37 +1001,393 @@ function App() {
                 </button>
 
               </div>
+
             )}
 
           </section>
+
         )}
 
-        {tab === 'edital' && (
+        {tab === 'simulado' && (
+
           <section className="panel">
 
             <div className="section-head">
+
               <div>
-                <div className="eyebrow">PROGRESSO</div>
-                <h2>Edital verticalizado</h2>
+                <div className="eyebrow">
+                  SIMULADO
+                </div>
+
+                <h2>
+                  Simulado personalizado
+                </h2>
+
+                <p className="muted">
+                  Monte uma prova com o que você
+                  já estudou. O gabarito só aparece
+                  depois da finalização.
+                </p>
               </div>
+
+            </div>
+
+            {simQuestions.length === 0 ? (
+
+              <>
+
+                <div className="filters">
+
+                  <label>
+                    Conteúdo
+
+                    <select
+                      value={simMode}
+                      onChange={e =>
+                        setSimMode(
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option>
+                        Semana atual
+                      </option>
+
+                      <option>
+                        Tudo estudado
+                      </option>
+
+                      <option>
+                        Só pontos fracos
+                      </option>
+                    </select>
+
+                  </label>
+
+                  <label>
+                    Quantidade
+
+                    <select
+                      value={simQuantity}
+                      onChange={e =>
+                        setSimQuantity(
+                          Number(
+                            e.target.value
+                          )
+                        )
+                      }
+                    >
+                      <option value={10}>
+                        10 questões
+                      </option>
+
+                      <option value={20}>
+                        20 questões
+                      </option>
+
+                      <option value={30}>
+                        30 questões
+                      </option>
+
+                      <option value={40}>
+                        40 questões
+                      </option>
+                    </select>
+
+                  </label>
+
+                </div>
+
+                <div
+                  style={{
+                    marginTop:'20px',
+                    display:'grid',
+                    gap:'12px'
+                  }}
+                >
+
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={
+                        includeAnswered
+                      }
+                      onChange={e =>
+                        setIncludeAnswered(
+                          e.target.checked
+                        )
+                      }
+                    />{' '}
+                    Permitir questões já
+                    respondidas
+                  </label>
+
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={weakWeight}
+                      onChange={e =>
+                        setWeakWeight(
+                          e.target.checked
+                        )
+                      }
+                    />{' '}
+                    Dar mais peso aos temas em
+                    que eu errei
+                  </label>
+
+                </div>
+
+                <div
+                  style={{
+                    marginTop:'24px'
+                  }}
+                >
+
+                  <button
+                    className="primary"
+                    onClick={
+                      createSimulation
+                    }
+                  >
+                    Criar simulado
+                  </button>
+
+                </div>
+
+                {simMessage && (
+                  <p className="muted">
+                    {simMessage}
+                  </p>
+                )}
+
+                {simHistory.length > 0 && (
+                  <div
+                    style={{
+                      marginTop:'35px'
+                    }}
+                  >
+
+                    <h3>
+                      Histórico de simulados
+                    </h3>
+
+                    <div className="edital-list">
+
+                      {simHistory.map(
+                        sim => (
+
+                          <div
+                            key={sim.id}
+                            className="edital-row"
+                          >
+
+                            <div>
+
+                              <strong>
+                                {sim.correct}/
+                                {sim.total}
+                              </strong>
+
+                              <div>
+                                {sim.mode}
+                              </div>
+
+                              <small className="muted">
+                                {new Date(
+                                  sim.created_at
+                                ).toLocaleString(
+                                  'pt-BR'
+                                )}
+                              </small>
+
+                            </div>
+
+                            <strong>
+                              {Number(
+                                sim.percentage
+                              ).toFixed(1)}%
+                            </strong>
+
+                          </div>
+
+                        )
+                      )}
+
+                    </div>
+
+                  </div>
+                )}
+
+              </>
+
+            ) : (
+
+              <>
+
+                <div
+                  className="section-head"
+                  style={{
+                    marginBottom:'20px'
+                  }}
+                >
+
+                  <div>
+                    <strong>
+                      {simMode}
+                    </strong>
+
+                    <p className="muted">
+                      {
+                        simQuestions.length
+                      }{' '}
+                      questões
+                    </p>
+                  </div>
+
+                  {!simFinished && (
+                    <span className="counter">
+                      {
+                        Object.keys(
+                          simAnswers
+                        ).length
+                      }
+                      /
+                      {
+                        simQuestions.length
+                      }{' '}
+                      respondidas
+                    </span>
+                  )}
+
+                </div>
+
+                <div className="question-list">
+
+                  {simQuestions.map(
+                    (q,i) => (
+
+                      <SimulationQuestion
+                        key={q.id}
+                        q={q}
+                        n={i + 1}
+                        selected={
+                          simAnswers[q.id]
+                        }
+                        finished={
+                          simFinished
+                        }
+                        onSelect={
+                          selectSimulationAnswer
+                        }
+                      />
+
+                    )
+                  )}
+
+                </div>
+
+                {!simFinished && (
+
+                  <div
+                    style={{
+                      marginTop:'25px',
+                      display:'flex',
+                      gap:'12px'
+                    }}
+                  >
+
+                    <button
+                      className="primary"
+                      onClick={
+                        finishSimulation
+                      }
+                    >
+                      Finalizar simulado
+                    </button>
+
+                    <button
+                      onClick={
+                        resetSimulation
+                      }
+                    >
+                      Cancelar
+                    </button>
+
+                  </div>
+
+                )}
+
+                {simMessage && (
+                  <p className="muted">
+                    {simMessage}
+                  </p>
+                )}
+
+                {simFinished &&
+                  simResult && (
+
+                  <SimulationResult
+                    result={
+                      simResult
+                    }
+                    resetSimulation={
+                      resetSimulation
+                    }
+                  />
+
+                )}
+
+              </>
+
+            )}
+
+          </section>
+
+        )}
+
+        {tab === 'edital' && (
+
+          <section className="panel">
+
+            <div className="section-head">
+
+              <div>
+                <div className="eyebrow">
+                  PROGRESSO
+                </div>
+
+                <h2>
+                  Edital verticalizado
+                </h2>
+              </div>
+
             </div>
 
             <div className="edital-list">
 
               {editalItems.map(item => (
+
                 <div
                   className="edital-row"
                   key={item.code}
                 >
 
                   <div>
-                    <strong>{item.code}</strong>
-                    <div>{item.title}</div>
+                    <strong>
+                      {item.code}
+                    </strong>
+
+                    <div>
+                      {item.title}
+                    </div>
                   </div>
 
                   <select
                     value={
-                      progress[`edital:${item.code}`] ||
+                      progress[
+                        `edital:${item.code}`
+                      ] ||
                       'Não iniciado'
                     }
                     onChange={e =>
@@ -456,48 +1398,77 @@ function App() {
                     }
                   >
 
-                    <option>Não iniciado</option>
-                    <option>Em andamento</option>
-                    <option>Concluído</option>
+                    <option>
+                      Não iniciado
+                    </option>
+
+                    <option>
+                      Em andamento
+                    </option>
+
+                    <option>
+                      Concluído
+                    </option>
 
                   </select>
 
                 </div>
+
               ))}
 
             </div>
 
           </section>
+
         )}
 
         {tab === 'erros' && (
+
           <section className="panel">
 
             <div className="section-head">
+
               <div>
-                <div className="eyebrow">REVISÃO</div>
-                <h2>Caderno de erros</h2>
+                <div className="eyebrow">
+                  REVISÃO
+                </div>
+
+                <h2>
+                  Caderno de erros
+                </h2>
               </div>
+
             </div>
 
             {incorrect.length === 0 ? (
+
               <p className="empty">
                 Nenhum erro registrado ainda.
               </p>
+
             ) : (
+
               incorrect.map(q => (
+
                 <div
                   className="error-card"
                   key={q.id}
                 >
 
-                  <strong>{q.theme}</strong>
+                  <strong>
+                    {q.theme}
+                  </strong>
 
-                  <p>{q.statement}</p>
+                  <p>
+                    {q.statement}
+                  </p>
 
                   <p>
                     <b>Sua resposta:</b>{' '}
-                    {answers[q.id].selected}
+                    {
+                      answers[q.id]
+                        .selected
+                    }
                     {' • '}
                     <b>Correta:</b>{' '}
                     {q.correct}
@@ -508,39 +1479,66 @@ function App() {
                   </p>
 
                 </div>
+
               ))
+
             )}
 
           </section>
+
         )}
 
         {tab === 'conta' && (
+
           <section className="panel account-panel">
 
             <div>
-              <div className="eyebrow">SINCRONIZAÇÃO</div>
-              <h2>Conta</h2>
+
+              <div className="eyebrow">
+                SINCRONIZAÇÃO
+              </div>
+
+              <h2>
+                Conta
+              </h2>
+
             </div>
 
             {!cloudEnabled && (
+
               <div className="notice">
-                O site está funcionando em modo local.
-                Para sincronizar entre celular e computador,
-                configure as variáveis do Supabase na Vercel.
+                O site está funcionando em modo
+                local.
               </div>
+
             )}
 
             {session ? (
+
               <div>
+
                 <p>
-                  Conectado como <b>{session.user.email}</b>.
+                  ☁ Sincronizado como
+                  {' '}
+                  <b>
+                    {session.user.email}
+                  </b>
+                </p>
+
+                <p className="muted">
+                  Neste navegador, o Supabase
+                  mantém sua sessão salva
+                  automaticamente.
                 </p>
 
                 <button onClick={signOut}>
                   Sair
                 </button>
+
               </div>
+
             ) : (
+
               <form
                 onSubmit={authSubmit}
                 className="auth-form"
@@ -550,7 +1548,11 @@ function App() {
                   type="email"
                   placeholder="Seu e-mail"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e =>
+                    setEmail(
+                      e.target.value
+                    )
+                  }
                   required
                 />
 
@@ -558,7 +1560,11 @@ function App() {
                   type="password"
                   placeholder="Senha"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={e =>
+                    setPassword(
+                      e.target.value
+                    )
+                  }
                   minLength="6"
                   required
                 />
@@ -595,21 +1601,32 @@ function App() {
                 )}
 
               </form>
+
             )}
 
           </section>
+
         )}
 
       </main>
+
     </div>
   )
 }
 
-function Stat({label,value}) {
+function Stat({
+  label,
+  value
+}) {
   return (
     <div className="stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
+      <span>
+        {label}
+      </span>
+
+      <strong>
+        {value}
+      </strong>
     </div>
   )
 }
@@ -619,41 +1636,52 @@ function LessonList({
   progress,
   setItemProgress
 }) {
-
   return (
     <div className="lessons">
 
-      {plan.lessons.map((lesson,i) => {
+      {plan.lessons.map(
+        (lesson,i) => {
 
-        const key = `lesson:${plan.id}:${i}`
+          const key =
+            `lesson:${plan.id}:${i}`
 
-        const done =
-          progress[key] === 'Concluído'
+          const done =
+            progress[key] ===
+            'Concluído'
 
-        return (
-          <label
-            className={`lesson ${done ? 'done' : ''}`}
-            key={key}
-          >
-
-            <input
-              type="checkbox"
-              checked={done}
-              onChange={e =>
-                setItemProgress(
-                  key,
-                  e.target.checked
-                    ? 'Concluído'
-                    : 'Não iniciado'
-                )
+          return (
+            <label
+              className={
+                `lesson ${
+                  done
+                    ? 'done'
+                    : ''
+                }`
               }
-            />
+              key={key}
+            >
 
-            <span>{lesson}</span>
+              <input
+                type="checkbox"
+                checked={done}
+                onChange={e =>
+                  setItemProgress(
+                    key,
+                    e.target.checked
+                      ? 'Concluído'
+                      : 'Não iniciado'
+                  )
+                }
+              />
 
-          </label>
-        )
-      })}
+              <span>
+                {lesson}
+              </span>
+
+            </label>
+          )
+        }
+      )}
 
     </div>
   )
@@ -665,68 +1693,282 @@ function QuestionCard({
   state,
   onAnswer
 }) {
-
   return (
     <article className="question-card">
 
       <div className="q-meta">
-        <span>Questão {n}</span>
-        <span>{q.day} • {q.theme}</span>
+
+        <span>
+          Questão {n}
+        </span>
+
+        <span>
+          {q.day} • {q.theme}
+        </span>
+
       </div>
 
-      <h3>{q.statement}</h3>
+      <h3>
+        {q.statement}
+      </h3>
 
       <div className="options">
 
-        {Object.entries(q.options).map(
-          ([key,text]) => (
+        {Object.entries(
+          q.options
+        ).map(([key,text]) => (
 
-            <button
-              key={key}
-              disabled={Boolean(state)}
-              onClick={() =>
-                onAnswer(q,key)
-              }
-              className={
-                state
-                  ? key === q.correct
-                    ? 'correct'
-                    : state.selected === key
-                      ? 'wrong'
-                      : ''
-                  : ''
-              }
-            >
-              <b>{key}</b> {text}
-            </button>
+          <button
+            key={key}
+            disabled={
+              Boolean(state)
+            }
+            onClick={() =>
+              onAnswer(q,key)
+            }
+            className={
+              state
+                ? key === q.correct
+                  ? 'correct'
+                  : state.selected === key
+                    ? 'wrong'
+                    : ''
+                : ''
+            }
+          >
+            <b>
+              {key}
+            </b>{' '}
+            {text}
+          </button>
 
-          )
-        )}
+        ))}
 
       </div>
 
       {state && (
+
         <div
-          className={`feedback ${
-            state.correct
-              ? 'ok'
-              : 'bad'
-          }`}
+          className={
+            `feedback ${
+              state.correct
+                ? 'ok'
+                : 'bad'
+            }`
+          }
         >
+
           <b>
             {state.correct
               ? 'Correto.'
               : 'Revisar.'}
           </b>{' '}
+
           {q.explanation}
+
         </div>
+
       )}
 
       <div className="source">
-        {q.sourceType} • {q.sourceLabel}
+        {q.sourceType} •{' '}
+        {q.sourceLabel}
       </div>
 
     </article>
+  )
+}
+
+function SimulationQuestion({
+  q,
+  n,
+  selected,
+  finished,
+  onSelect
+}) {
+  return (
+    <article className="question-card">
+
+      <div className="q-meta">
+
+        <span>
+          Questão {n}
+        </span>
+
+        <span>
+          {q.theme}
+        </span>
+
+      </div>
+
+      <h3>
+        {q.statement}
+      </h3>
+
+      <div className="options">
+
+        {Object.entries(
+          q.options
+        ).map(([key,text]) => {
+
+          let className = ''
+
+          if (finished) {
+            if (
+              key === q.correct
+            ) {
+              className =
+                'correct'
+            } else if (
+              selected === key
+            ) {
+              className =
+                'wrong'
+            }
+          } else if (
+            selected === key
+          ) {
+            className =
+              'selected'
+          }
+
+          return (
+            <button
+              key={key}
+              className={
+                className
+              }
+              onClick={() =>
+                onSelect(
+                  q.id,
+                  key
+                )
+              }
+              disabled={
+                finished
+              }
+            >
+              <b>
+                {key}
+              </b>{' '}
+              {text}
+            </button>
+          )
+        })}
+
+      </div>
+
+      {finished && (
+
+        <div
+          className={
+            `feedback ${
+              selected === q.correct
+                ? 'ok'
+                : 'bad'
+            }`
+          }
+        >
+
+          <b>
+            {selected === q.correct
+              ? 'Correto.'
+              : `Resposta correta: ${q.correct}.`}
+          </b>{' '}
+
+          {q.explanation}
+
+        </div>
+
+      )}
+
+    </article>
+  )
+}
+
+function SimulationResult({
+  result,
+  resetSimulation
+}) {
+  return (
+    <div
+      className="panel"
+      style={{
+        marginTop:'30px'
+      }}
+    >
+
+      <div className="eyebrow">
+        RESULTADO
+      </div>
+
+      <h2>
+        {result.correct}/
+        {result.total}
+        {' — '}
+        {result.percentage}%
+      </h2>
+
+      <h3>
+        Desempenho por tema
+      </h3>
+
+      <div className="edital-list">
+
+        {Object.entries(
+          result.themeStats
+        ).map(
+          ([theme,stats]) => {
+
+            const pct =
+              Math.round(
+                stats.correct /
+                stats.total *
+                100
+              )
+
+            return (
+              <div
+                className="edital-row"
+                key={theme}
+              >
+
+                <div>
+                  {theme}
+                </div>
+
+                <strong>
+                  {stats.correct}/
+                  {stats.total}
+                  {' • '}
+                  {pct}%
+                </strong>
+
+              </div>
+            )
+          }
+        )}
+
+      </div>
+
+      <div
+        style={{
+          marginTop:'20px'
+        }}
+      >
+
+        <button
+          className="primary"
+          onClick={
+            resetSimulation
+          }
+        >
+          Criar outro simulado
+        </button>
+
+      </div>
+
+    </div>
   )
 }
 
