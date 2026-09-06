@@ -22,6 +22,14 @@ const weekStudyDays = [
   'Sábado'
 ]
 
+const CONTENT_MINUTES = 105
+const QUESTIONS_MINUTES = 45
+const REVIEW_MINUTES = 30
+
+// Como o studyPlan atual não guarda a duração individual
+// das aulas, usamos 35 min como unidade de planejamento.
+const ESTIMATED_LESSON_MINUTES = 35
+
 function shuffle(array) {
   const copy = [...array]
 
@@ -50,6 +58,7 @@ function App() {
   const [themeFilter, setThemeFilter] = useState('Todos')
   const [questionLimit, setQuestionLimit] = useState(10)
 
+  // SIMULADO
   const [simMode, setSimMode] = useState('Semana atual')
   const [simQuantity, setSimQuantity] = useState(20)
   const [includeAnswered, setIncludeAnswered] = useState(true)
@@ -63,26 +72,39 @@ function App() {
   const [simHistory, setSimHistory] = useState([])
 
   const todayName = weekDayMap[new Date().getDay()]
+
   const todayPlan =
     studyPlan.find(x => x.day === todayName) ||
     studyPlan[0]
 
+  // =========================================================
+  // LOGIN E SINCRONIZAÇÃO
+  // =========================================================
+
   useEffect(() => {
     if (!cloudEnabled) {
       setProgress(
-        JSON.parse(localStorage.getItem('tp_progress') || '{}')
+        JSON.parse(
+          localStorage.getItem('tp_progress') || '{}'
+        )
       )
 
       setAnswers(
-        JSON.parse(localStorage.getItem('tp_answers') || '{}')
+        JSON.parse(
+          localStorage.getItem('tp_answers') || '{}'
+        )
       )
 
       setErrorNotebook(
-        JSON.parse(localStorage.getItem('tp_error_notebook') || '[]')
+        JSON.parse(
+          localStorage.getItem('tp_error_notebook') || '[]'
+        )
       )
 
       setSimHistory(
-        JSON.parse(localStorage.getItem('tp_sim_history') || '[]')
+        JSON.parse(
+          localStorage.getItem('tp_sim_history') || '[]'
+        )
       )
 
       return
@@ -99,11 +121,13 @@ function App() {
         }
       )
 
-    return () => listener.subscription.unsubscribe()
+    return () =>
+      listener.subscription.unsubscribe()
   }, [])
 
   useEffect(() => {
     if (!cloudEnabled || !session?.user) return
+
     loadCloudState()
   }, [session])
 
@@ -130,19 +154,26 @@ function App() {
         .from('error_notebook')
         .select('*')
         .eq('user_id', userId)
-        .order('last_error_at', { ascending: false }),
+        .order('last_error_at', {
+          ascending: false
+        }),
 
       supabase
         .from('simulation_results')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false })
+        .order('created_at', {
+          ascending: false
+        })
         .limit(20)
     ])
 
     setProgress(
       Object.fromEntries(
-        (p || []).map(row => [row.item_key, row.status])
+        (p || []).map(row => [
+          row.item_key,
+          row.status
+        ])
       )
     )
 
@@ -167,7 +198,9 @@ function App() {
     setMessage('')
 
     if (!cloudEnabled) {
-      setMessage('Configure o Supabase para ativar login e sincronização.')
+      setMessage(
+        'Configure o Supabase para ativar login e sincronização.'
+      )
       return
     }
 
@@ -199,6 +232,10 @@ function App() {
     }
   }
 
+  // =========================================================
+  // PROGRESSO
+  // =========================================================
+
   async function setItemProgress(key, status) {
     const next = {
       ...progress,
@@ -208,7 +245,10 @@ function App() {
     setProgress(next)
 
     if (!cloudEnabled || !session?.user) {
-      localStorage.setItem('tp_progress', JSON.stringify(next))
+      localStorage.setItem(
+        'tp_progress',
+        JSON.stringify(next)
+      )
       return
     }
 
@@ -226,30 +266,48 @@ function App() {
       )
   }
 
-  async function addErrorToNotebook(q, selected, source) {
+  // =========================================================
+  // CADERNO DE ERROS
+  // =========================================================
+
+  async function addErrorToNotebook(
+    q,
+    selected,
+    source
+  ) {
     const now = new Date().toISOString()
 
     if (!cloudEnabled || !session?.user) {
       const existing =
-        JSON.parse(localStorage.getItem('tp_error_notebook') || '[]')
+        JSON.parse(
+          localStorage.getItem(
+            'tp_error_notebook'
+          ) || '[]'
+        )
 
-      const found = existing.find(item => item.question_id === q.id)
+      const found =
+        existing.find(
+          item =>
+            item.question_id === q.id
+        )
 
       let next
 
       if (found) {
-        next = existing.map(item =>
-          item.question_id === q.id
-            ? {
-                ...item,
-                selected_option: selected,
-                source,
-                error_count: (item.error_count || 1) + 1,
-                last_error_at: now,
-                reviewed: false
-              }
-            : item
-        )
+        next =
+          existing.map(item =>
+            item.question_id === q.id
+              ? {
+                  ...item,
+                  selected_option: selected,
+                  source,
+                  error_count:
+                    (item.error_count || 1) + 1,
+                  last_error_at: now,
+                  reviewed: false
+                }
+              : item
+          )
       } else {
         next = [
           {
@@ -279,7 +337,10 @@ function App() {
     }
 
     const existing =
-      errorNotebook.find(item => item.question_id === q.id)
+      errorNotebook.find(
+        item =>
+          item.question_id === q.id
+      )
 
     const payload = {
       user_id: session.user.id,
@@ -300,30 +361,43 @@ function App() {
     const { data, error } =
       await supabase
         .from('error_notebook')
-        .upsert(payload, {
-          onConflict: 'user_id,question_id'
-        })
+        .upsert(
+          payload,
+          {
+            onConflict:
+              'user_id,question_id'
+          }
+        )
         .select()
         .single()
 
     if (!error && data) {
       setErrorNotebook(prev => {
-        const without = prev.filter(
-          item => item.question_id !== q.id
-        )
+        const without =
+          prev.filter(
+            item =>
+              item.question_id !== q.id
+          )
 
         return [data, ...without]
       })
     }
   }
 
-  async function markErrorReviewed(id, reviewed) {
+  async function markErrorReviewed(
+    id,
+    reviewed
+  ) {
     if (!cloudEnabled || !session?.user) {
-      const next = errorNotebook.map(item =>
-        item.id === id
-          ? { ...item, reviewed }
-          : item
-      )
+      const next =
+        errorNotebook.map(item =>
+          item.id === id
+            ? {
+                ...item,
+                reviewed
+              }
+            : item
+        )
 
       setErrorNotebook(next)
 
@@ -340,21 +414,34 @@ function App() {
         .from('error_notebook')
         .update({ reviewed })
         .eq('id', id)
-        .eq('user_id', session.user.id)
+        .eq(
+          'user_id',
+          session.user.id
+        )
         .select()
         .single()
 
     if (!error && data) {
       setErrorNotebook(prev =>
         prev.map(item =>
-          item.id === id ? data : item
+          item.id === id
+            ? data
+            : item
         )
       )
     }
   }
 
-  async function answerQuestion(q, selected) {
-    const isCorrect = selected === q.correct
+  // =========================================================
+  // QUESTÕES
+  // =========================================================
+
+  async function answerQuestion(
+    q,
+    selected
+  ) {
+    const isCorrect =
+      selected === q.correct
 
     const entry = {
       selected,
@@ -377,7 +464,11 @@ function App() {
     }
 
     if (!cloudEnabled || !session?.user) {
-      localStorage.setItem('tp_answers', JSON.stringify(next))
+      localStorage.setItem(
+        'tp_answers',
+        JSON.stringify(next)
+      )
+
       return
     }
 
@@ -393,7 +484,8 @@ function App() {
           theme: q.theme
         },
         {
-          onConflict: 'user_id,question_id'
+          onConflict:
+            'user_id,question_id'
         }
       )
   }
@@ -401,7 +493,9 @@ function App() {
   const themes = useMemo(
     () => [
       'Todos',
-      ...new Set(questions.map(q => q.theme))
+      ...new Set(
+        questions.map(q => q.theme)
+      )
     ],
     []
   )
@@ -420,7 +514,10 @@ function App() {
     )
 
   const visibleQuestions =
-    filteredQuestions.slice(0, questionLimit)
+    filteredQuestions.slice(
+      0,
+      questionLimit
+    )
 
   useEffect(() => {
     setQuestionLimit(10)
@@ -430,86 +527,391 @@ function App() {
     Object.keys(answers).length
 
   const correctCount =
-    Object.values(answers).filter(a => a.correct).length
+    Object.values(answers).filter(
+      a => a.correct
+    ).length
 
   const finished =
     Object.values(progress).filter(
-      v => v === 'Concluído'
+      value => value === 'Concluído'
     ).length
 
   const activeErrors =
-    errorNotebook.filter(item => !item.reviewed)
+    errorNotebook.filter(
+      item => !item.reviewed
+    )
 
-  const studiedDays = useMemo(() => {
-    const result = new Set()
+  // =========================================================
+  // ESTUDAR HOJE — MOTOR ADAPTATIVO
+  // =========================================================
 
-    studyPlan.forEach(plan => {
-      const studied =
-        plan.lessons.some(
-          (_, i) =>
-            progress[
-              `lesson:${plan.id}:${i}`
-            ] === 'Concluído'
+  const adaptiveSession =
+    useMemo(() => {
+      const todayIndex =
+        studyPlan.findIndex(
+          plan =>
+            plan.day === todayName
         )
 
-      if (studied) {
-        result.add(plan.day)
+      const overdue = []
+      const todayPending = []
+
+      studyPlan.forEach(
+        (plan, planIndex) => {
+          plan.lessons.forEach(
+            (lesson, lessonIndex) => {
+              const key =
+                `lesson:${plan.id}:${lessonIndex}`
+
+              const done =
+                progress[key] ===
+                'Concluído'
+
+              if (done) return
+
+              const item = {
+                key,
+                lesson,
+                day: plan.day,
+                theme: plan.theme,
+                planId: plan.id,
+                planIndex,
+                lessonIndex
+              }
+
+              if (
+                todayIndex >= 0 &&
+                planIndex < todayIndex
+              ) {
+                overdue.push(item)
+              }
+
+              if (
+                plan.day === todayName
+              ) {
+                todayPending.push(item)
+              }
+            }
+          )
+        }
+      )
+
+      // Ordenação explícita:
+      // mais antigo -> mais recente
+      overdue.sort(
+        (a,b) =>
+          a.planIndex - b.planIndex ||
+          a.lessonIndex - b.lessonIndex
+      )
+
+      const maxContentItems =
+        Math.floor(
+          CONTENT_MINUTES /
+          ESTIMATED_LESSON_MINUTES
+        )
+
+      // ATRASADOS TÊM PRIORIDADE ABSOLUTA
+      const selectedOverdue =
+        overdue.slice(
+          0,
+          maxContentItems
+        )
+
+      const remainingSlots =
+        Math.max(
+          0,
+          maxContentItems -
+          selectedOverdue.length
+        )
+
+      const selectedToday =
+        todayPending.slice(
+          0,
+          remainingSlots
+        )
+
+      const contentQueue = [
+        ...selectedOverdue.map(
+          item => ({
+            ...item,
+            type: 'overdue'
+          })
+        ),
+
+        ...selectedToday.map(
+          item => ({
+            ...item,
+            type: 'today'
+          })
+        )
+      ]
+
+      // Temas do que entrou na sessão
+      const sessionThemes =
+        new Set(
+          contentQueue.map(
+            item => item.theme
+          )
+        )
+
+      // Questões prioritariamente ligadas
+      // aos conteúdos da sessão.
+      let questionPool =
+        questions.filter(
+          q =>
+            sessionThemes.has(
+              q.theme
+            )
+        )
+
+      // Se os nomes de tema não casarem exatamente,
+      // usa os dias envolvidos.
+      if (
+        questionPool.length < 10
+      ) {
+        const sessionDays =
+          new Set(
+            contentQueue.map(
+              item => item.day
+            )
+          )
+
+        questionPool =
+          questions.filter(
+            q =>
+              sessionDays.has(q.day)
+          )
       }
-    })
 
-    return result
-  }, [progress])
+      // Se ainda não houver conteúdo suficiente,
+      // usa questões da semana.
+      if (
+        questionPool.length < 10
+      ) {
+        questionPool =
+          questions.filter(
+            q =>
+              weekStudyDays.includes(
+                q.day
+              )
+          )
+      }
 
-  const weakThemes = useMemo(() => {
-    return new Set(
-      activeErrors.map(item => item.theme)
+      // Prioriza não respondidas
+      const unanswered =
+        shuffle(
+          questionPool.filter(
+            q => !answers[q.id]
+          )
+        )
+
+      const alreadyAnswered =
+        shuffle(
+          questionPool.filter(
+            q => answers[q.id]
+          )
+        )
+
+      const todayQuestions = [
+        ...unanswered,
+        ...alreadyAnswered
+      ].slice(0,10)
+
+      const reviewItems =
+        activeErrors
+          .slice()
+          .sort(
+            (a,b) =>
+              (b.error_count || 1) -
+              (a.error_count || 1)
+          )
+          .slice(0,5)
+
+      let nextAction =
+        'Sessão concluída'
+
+      if (
+        selectedOverdue.length > 0
+      ) {
+        nextAction =
+          `Recuperar: ${selectedOverdue[0].lesson}`
+      } else if (
+        selectedToday.length > 0
+      ) {
+        nextAction =
+          `Estudar: ${selectedToday[0].lesson}`
+      } else if (
+        todayQuestions.some(
+          q => !answers[q.id]
+        )
+      ) {
+        nextAction =
+          'Resolver questões do conteúdo'
+      } else if (
+        reviewItems.length > 0
+      ) {
+        nextAction =
+          'Revisar o Caderno de erros'
+      }
+
+      return {
+        overdue,
+        selectedOverdue,
+        selectedToday,
+        contentQueue,
+        todayQuestions,
+        reviewItems,
+        nextAction
+      }
+    }, [
+      progress,
+      answers,
+      activeErrors,
+      todayName
+    ])
+
+  const completedSessionLessons =
+    adaptiveSession.contentQueue.filter(
+      item =>
+        progress[item.key] ===
+        'Concluído'
+    ).length
+
+  const answeredSessionQuestions =
+    adaptiveSession.todayQuestions.filter(
+      q => answers[q.id]
+    ).length
+
+  const reviewedSessionErrors =
+    adaptiveSession.reviewItems.filter(
+      item => item.reviewed
+    ).length
+
+  const estimatedDoneMinutes =
+    Math.min(
+      180,
+      completedSessionLessons *
+        ESTIMATED_LESSON_MINUTES +
+      answeredSessionQuestions *
+        (QUESTIONS_MINUTES / 10) +
+      reviewedSessionErrors *
+        (REVIEW_MINUTES / 5)
     )
-  }, [activeErrors])
+
+  // =========================================================
+  // SIMULADO
+  // =========================================================
+
+  const studiedDays =
+    useMemo(() => {
+      const result = new Set()
+
+      studyPlan.forEach(plan => {
+        const studied =
+          plan.lessons.some(
+            (_,i) =>
+              progress[
+                `lesson:${plan.id}:${i}`
+              ] === 'Concluído'
+          )
+
+        if (studied) {
+          result.add(plan.day)
+        }
+      })
+
+      return result
+    }, [progress])
+
+  const weakThemes =
+    useMemo(() => {
+      return new Set(
+        activeErrors.map(
+          item => item.theme
+        )
+      )
+    }, [activeErrors])
 
   function getSimulationPool() {
     let pool = []
 
-    if (simMode === 'Semana atual') {
-      pool = questions.filter(
-        q => weekStudyDays.includes(q.day)
-      )
+    if (
+      simMode === 'Semana atual'
+    ) {
+      pool =
+        questions.filter(
+          q =>
+            weekStudyDays.includes(
+              q.day
+            )
+        )
     }
 
-    if (simMode === 'Tudo estudado') {
-      if (studiedDays.size > 0) {
-        pool = questions.filter(
-          q => studiedDays.has(q.day)
-        )
+    if (
+      simMode === 'Tudo estudado'
+    ) {
+      if (
+        studiedDays.size > 0
+      ) {
+        pool =
+          questions.filter(
+            q =>
+              studiedDays.has(
+                q.day
+              )
+          )
       } else {
-        pool = questions.filter(
-          q => weekStudyDays.includes(q.day)
-        )
+        pool =
+          questions.filter(
+            q =>
+              weekStudyDays.includes(
+                q.day
+              )
+          )
       }
     }
 
-    if (simMode === 'Só pontos fracos') {
-      if (weakThemes.size > 0) {
-        pool = questions.filter(
-          q => weakThemes.has(q.theme)
-        )
+    if (
+      simMode === 'Só pontos fracos'
+    ) {
+      if (
+        weakThemes.size > 0
+      ) {
+        pool =
+          questions.filter(
+            q =>
+              weakThemes.has(
+                q.theme
+              )
+          )
       } else {
-        pool = questions.filter(
-          q => weekStudyDays.includes(q.day)
-        )
+        pool =
+          questions.filter(
+            q =>
+              weekStudyDays.includes(
+                q.day
+              )
+          )
       }
     }
 
     if (!includeAnswered) {
-      pool = pool.filter(
-        q => !answers[q.id]
-      )
+      pool =
+        pool.filter(
+          q => !answers[q.id]
+        )
     }
 
     return pool
   }
 
-  function weightedQuestionOrder(pool) {
-    if (!weakWeight || weakThemes.size === 0) {
+  function weightedQuestionOrder(
+    pool
+  ) {
+    if (
+      !weakWeight ||
+      weakThemes.size === 0
+    ) {
       return shuffle(pool)
     }
 
@@ -518,13 +920,17 @@ function App() {
     pool.forEach(q => {
       weighted.push(q)
 
-      if (weakThemes.has(q.theme)) {
+      if (
+        weakThemes.has(q.theme)
+      ) {
         weighted.push(q)
         weighted.push(q)
       }
     })
 
-    const shuffled = shuffle(weighted)
+    const shuffled =
+      shuffle(weighted)
+
     const unique = []
     const ids = new Set()
 
@@ -539,16 +945,20 @@ function App() {
   }
 
   function createSimulation() {
-    const pool = getSimulationPool()
+    const pool =
+      getSimulationPool()
 
-    if (pool.length === 0) {
+    if (
+      pool.length === 0
+    ) {
       setSimMessage(
         'Não há questões disponíveis com esses filtros.'
       )
       return
     }
 
-    const ordered = weightedQuestionOrder(pool)
+    const ordered =
+      weightedQuestionOrder(pool)
 
     const selected =
       ordered.slice(
@@ -564,7 +974,10 @@ function App() {
     setSimFinished(false)
     setSimResult(null)
 
-    if (selected.length < simQuantity) {
+    if (
+      selected.length <
+      simQuantity
+    ) {
       setSimMessage(
         `O banco possui ${selected.length} questões disponíveis para esses critérios.`
       )
@@ -573,7 +986,10 @@ function App() {
     }
   }
 
-  function selectSimulationAnswer(questionId, option) {
+  function selectSimulationAnswer(
+    questionId,
+    option
+  ) {
     if (simFinished) return
 
     setSimAnswers(prev => ({
@@ -595,12 +1011,16 @@ function App() {
 
     let correct = 0
     const themeStats = {}
-
     const details = []
 
-    for (const q of simQuestions) {
-      const selected = simAnswers[q.id]
-      const isCorrect = selected === q.correct
+    for (
+      const q of simQuestions
+    ) {
+      const selected =
+        simAnswers[q.id]
+
+      const isCorrect =
+        selected === q.correct
 
       if (isCorrect) {
         correct++
@@ -612,7 +1032,9 @@ function App() {
         )
       }
 
-      if (!themeStats[q.theme]) {
+      if (
+        !themeStats[q.theme]
+      ) {
         themeStats[q.theme] = {
           total: 0,
           correct: 0
@@ -645,7 +1067,8 @@ function App() {
 
     const result = {
       correct,
-      total: simQuestions.length,
+      total:
+        simQuestions.length,
       percentage,
       themeStats,
       details
@@ -655,34 +1078,45 @@ function App() {
     setSimFinished(true)
     setSimMessage('')
 
-    await saveSimulationResult(result)
+    await saveSimulationResult(
+      result
+    )
   }
 
-  async function saveSimulationResult(result) {
+  async function saveSimulationResult(
+    result
+  ) {
     const record = {
       mode: simMode,
       total: result.total,
       correct: result.correct,
-      percentage: result.percentage,
+      percentage:
+        result.percentage,
       details: result.details
     }
 
-    if (!cloudEnabled || !session?.user) {
+    if (
+      !cloudEnabled ||
+      !session?.user
+    ) {
       const existing =
         JSON.parse(
-          localStorage.getItem('tp_sim_history') || '[]'
+          localStorage.getItem(
+            'tp_sim_history'
+          ) || '[]'
         )
 
       const localRecord = {
         ...record,
         id: crypto.randomUUID(),
-        created_at: new Date().toISOString()
+        created_at:
+          new Date().toISOString()
       }
 
       const next = [
         localRecord,
         ...existing
-      ].slice(0, 20)
+      ].slice(0,20)
 
       localStorage.setItem(
         'tp_sim_history',
@@ -695,10 +1129,13 @@ function App() {
 
     const { data, error } =
       await supabase
-        .from('simulation_results')
+        .from(
+          'simulation_results'
+        )
         .insert({
           ...record,
-          user_id: session.user.id
+          user_id:
+            session.user.id
         })
         .select()
         .single()
@@ -707,7 +1144,7 @@ function App() {
       setSimHistory(prev => [
         data,
         ...prev
-      ].slice(0, 20))
+      ].slice(0,20))
     }
   }
 
@@ -719,6 +1156,10 @@ function App() {
     setSimMessage('')
   }
 
+  // =========================================================
+  // INTERFACE
+  // =========================================================
+
   return (
     <div className="app-shell">
 
@@ -728,7 +1169,9 @@ function App() {
             TRANSPETRO 2026
           </div>
 
-          <h1>Análise Ambiental</h1>
+          <h1>
+            Análise Ambiental
+          </h1>
         </div>
 
         <div className="sync-pill">
@@ -743,6 +1186,7 @@ function App() {
       <nav className="nav">
         {[
           ['inicio','Início'],
+          ['hoje','Estudar hoje'],
           ['aulas','Aulas'],
           ['questoes','Questões'],
           ['simulado','Simulado'],
@@ -752,8 +1196,14 @@ function App() {
         ].map(([id,label]) => (
           <button
             key={id}
-            onClick={() => setTab(id)}
-            className={tab === id ? 'active' : ''}
+            onClick={() =>
+              setTab(id)
+            }
+            className={
+              tab === id
+                ? 'active'
+                : ''
+            }
           >
             {label}
           </button>
@@ -765,18 +1215,33 @@ function App() {
         {tab === 'inicio' && (
           <>
             <section className="hero-card">
+
               <div>
                 <div className="eyebrow">
-                  ESTUDAR HOJE • {todayName.toUpperCase()}
+                  SESSÃO DE HOJE • 3 HORAS
                 </div>
 
-                <h2>{todayPlan.theme}</h2>
-                <p>{todayPlan.block}</p>
+                <h2>
+                  {adaptiveSession.overdue.length > 0
+                    ? `${adaptiveSession.overdue.length} pendência(s) antes do conteúdo de hoje`
+                    : 'Tudo em dia'}
+                </h2>
+
+                <p>
+                  <strong>
+                    Próxima ação:
+                  </strong>{' '}
+                  {
+                    adaptiveSession.nextAction
+                  }
+                </p>
               </div>
 
               <button
                 className="primary"
-                onClick={() => setTab('aulas')}
+                onClick={() =>
+                  setTab('hoje')
+                }
               >
                 Estudar hoje →
               </button>
@@ -784,8 +1249,19 @@ function App() {
 
             <section className="stats-grid">
               <Stat
-                label="Itens concluídos"
-                value={`${finished}/${editalItems.length}`}
+                label="Sessão de hoje"
+                value={`${Math.round(
+                  estimatedDoneMinutes
+                )}/180 min`}
+              />
+
+              <Stat
+                label="Pendências"
+                value={
+                  adaptiveSession
+                    .overdue
+                    .length
+                }
               />
 
               <Stat
@@ -794,65 +1270,328 @@ function App() {
               />
 
               <Stat
-                label="Aproveitamento"
-                value={
-                  answeredCount
-                    ? `${Math.round(
-                        correctCount /
-                        answeredCount *
-                        100
-                      )}%`
-                    : '—'
-                }
-              />
-
-              <Stat
                 label="Erros para revisar"
-                value={activeErrors.length}
+                value={
+                  activeErrors.length
+                }
               />
             </section>
 
-            {!session && cloudEnabled && (
-              <section className="panel">
-                <strong>
-                  ⚠ Seu progresso não está sincronizado.
-                </strong>
-
-                <p>
-                  Entre na aba Conta para salvar
-                  automaticamente seu progresso.
-                </p>
-
-                <button
-                  className="primary"
-                  onClick={() => setTab('conta')}
-                >
-                  Entrar na conta
-                </button>
-              </section>
-            )}
-
             <section className="panel">
-              <h3>Plano de hoje</h3>
+              <div className="eyebrow">
+                ORDEM DE PRIORIDADE
+              </div>
 
-              <LessonList
-                plan={todayPlan}
-                progress={progress}
-                setItemProgress={setItemProgress}
-              />
+              <h3>
+                Como sua sessão será montada
+              </h3>
+
+              <p>
+                <b>1.</b> Pendências mais antigas
+                {' → '}
+                <b>2.</b> Conteúdo de hoje
+                {' → '}
+                <b>3.</b> Questões
+                {' → '}
+                <b>4.</b> Caderno de erros
+              </p>
             </section>
           </>
         )}
 
+        {tab === 'hoje' && (
+          <section className="panel">
+
+            <div className="section-head">
+              <div>
+                <div className="eyebrow">
+                  ESTUDAR HOJE
+                </div>
+
+                <h2>
+                  Sua sessão adaptativa de 3 horas
+                </h2>
+
+                <p className="muted">
+                  O site sempre recupera o conteúdo
+                  atrasado antes de avançar.
+                </p>
+              </div>
+
+              <span className="counter">
+                {Math.round(
+                  estimatedDoneMinutes
+                )}/180 min
+              </span>
+            </div>
+
+            <div
+              style={{
+                marginBottom:'25px'
+              }}
+            >
+              <strong>
+                Próxima ação:
+              </strong>{' '}
+              {
+                adaptiveSession.nextAction
+              }
+            </div>
+
+            {adaptiveSession
+              .overdue.length > 0 && (
+              <div
+                className="notice"
+                style={{
+                  marginBottom:'25px'
+                }}
+              >
+                <strong>
+                  Recuperação prioritária
+                </strong>
+
+                <p>
+                  Existem{' '}
+                  {
+                    adaptiveSession
+                      .overdue
+                      .length
+                  }{' '}
+                  aula(s) pendente(s).
+                  As mais antigas entram primeiro.
+                </p>
+
+                {adaptiveSession
+                  .overdue
+                  .length >
+                  adaptiveSession
+                    .selectedOverdue
+                    .length && (
+                  <p className="muted">
+                    Nem todas cabem no bloco
+                    de conteúdo de hoje. O restante
+                    continuará tendo prioridade
+                    amanhã.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <StudySection
+              number="1"
+              title={`Conteúdo • ${CONTENT_MINUTES} min`}
+              subtitle="Atrasados primeiro. O conteúdo novo só entra se houver espaço."
+            >
+
+              {adaptiveSession
+                .contentQueue
+                .length === 0 ? (
+                <p className="empty">
+                  Nenhuma aula pendente para hoje.
+                </p>
+              ) : (
+                adaptiveSession
+                  .contentQueue
+                  .map(item => (
+                    <div
+                      className="day-card"
+                      key={item.key}
+                      style={{
+                        marginBottom:'12px'
+                      }}
+                    >
+                      <div className="q-meta">
+                        <span>
+                          {item.type === 'overdue'
+                            ? '⚠ ATRASADO'
+                            : 'HOJE'}
+                        </span>
+
+                        <span>
+                          {item.day}
+                        </span>
+                      </div>
+
+                      <strong>
+                        {item.theme}
+                      </strong>
+
+                      <label
+                        className={`lesson ${
+                          progress[
+                            item.key
+                          ] ===
+                          'Concluído'
+                            ? 'done'
+                            : ''
+                        }`}
+                        style={{
+                          marginTop:'10px'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={
+                            progress[
+                              item.key
+                            ] ===
+                            'Concluído'
+                          }
+                          onChange={e =>
+                            setItemProgress(
+                              item.key,
+                              e.target.checked
+                                ? 'Concluído'
+                                : 'Não iniciado'
+                            )
+                          }
+                        />
+
+                        <span>
+                          {item.lesson}
+                        </span>
+                      </label>
+                    </div>
+                  ))
+              )}
+
+            </StudySection>
+
+            <StudySection
+              number="2"
+              title={`Questões • ${QUESTIONS_MINUTES} min`}
+              subtitle="10 questões ligadas ao conteúdo priorizado na sessão."
+            >
+
+              {adaptiveSession
+                .todayQuestions
+                .length === 0 ? (
+                <p className="empty">
+                  Nenhuma questão disponível.
+                </p>
+              ) : (
+                <div className="question-list">
+                  {adaptiveSession
+                    .todayQuestions
+                    .map((q,i) => (
+                      <QuestionCard
+                        key={q.id}
+                        q={q}
+                        n={i + 1}
+                        state={
+                          answers[q.id]
+                        }
+                        onAnswer={
+                          answerQuestion
+                        }
+                      />
+                    ))}
+                </div>
+              )}
+
+            </StudySection>
+
+            <StudySection
+              number="3"
+              title={`Revisão • ${REVIEW_MINUTES} min`}
+              subtitle="Prioriza os erros mais recorrentes do seu Caderno."
+            >
+
+              {adaptiveSession
+                .reviewItems
+                .length === 0 ? (
+                <p className="empty">
+                  Nenhum erro pendente para revisão.
+                </p>
+              ) : (
+                adaptiveSession
+                  .reviewItems
+                  .map(item => (
+                    <div
+                      className="error-card"
+                      key={item.id}
+                    >
+                      <div className="q-meta">
+                        <span>
+                          {item.source}
+                        </span>
+
+                        <span>
+                          {item.theme}
+                        </span>
+                      </div>
+
+                      <p>
+                        <strong>
+                          {
+                            item.statement
+                          }
+                        </strong>
+                      </p>
+
+                      <p>
+                        <b>
+                          Sua resposta:
+                        </b>{' '}
+                        {
+                          item.selected_option
+                        }
+                        {' • '}
+                        <b>
+                          Correta:
+                        </b>{' '}
+                        {
+                          item.correct_option
+                        }
+                      </p>
+
+                      <p className="muted">
+                        {
+                          item.explanation
+                        }
+                      </p>
+
+                      <p>
+                        Erros acumulados:{' '}
+                        <b>
+                          {
+                            item.error_count
+                          }
+                        </b>
+                      </p>
+
+                      <button
+                        className="primary"
+                        onClick={() =>
+                          markErrorReviewed(
+                            item.id,
+                            true
+                          )
+                        }
+                      >
+                        Marcar como revisado
+                      </button>
+                    </div>
+                  ))
+              )}
+
+            </StudySection>
+
+          </section>
+        )}
+
         {tab === 'aulas' && (
           <section className="panel">
+
             <div className="section-head">
               <div>
                 <div className="eyebrow">
                   CRONOGRAMA
                 </div>
 
-                <h2>Aulas da semana</h2>
+                <h2>
+                  Aulas da semana
+                </h2>
               </div>
             </div>
 
@@ -862,7 +1601,9 @@ function App() {
                   className="day-card"
                   key={plan.id}
                 >
-                  <h3>{plan.day}</h3>
+                  <h3>
+                    {plan.day}
+                  </h3>
 
                   <p className="muted">
                     {plan.theme}
@@ -871,16 +1612,20 @@ function App() {
                   <LessonList
                     plan={plan}
                     progress={progress}
-                    setItemProgress={setItemProgress}
+                    setItemProgress={
+                      setItemProgress
+                    }
                   />
                 </div>
               ))}
             </div>
+
           </section>
         )}
 
         {tab === 'questoes' && (
           <section className="panel">
+
             <div className="section-head">
               <div>
                 <div className="eyebrow">
@@ -893,18 +1638,24 @@ function App() {
               </div>
 
               <span className="counter">
-                {filteredQuestions.length} disponíveis
+                {
+                  filteredQuestions.length
+                }{' '}
+                disponíveis
               </span>
             </div>
 
             <div className="filters">
+
               <label>
                 Dia
 
                 <select
                   value={dayFilter}
                   onChange={e =>
-                    setDayFilter(e.target.value)
+                    setDayFilter(
+                      e.target.value
+                    )
                   }
                 >
                   {[
@@ -930,7 +1681,9 @@ function App() {
                 <select
                   value={themeFilter}
                   onChange={e =>
-                    setThemeFilter(e.target.value)
+                    setThemeFilter(
+                      e.target.value
+                    )
                   }
                 >
                   {themes.map(t => (
@@ -940,21 +1693,29 @@ function App() {
                   ))}
                 </select>
               </label>
+
             </div>
 
             <div className="question-list">
-              {visibleQuestions.map((q,i) => (
-                <QuestionCard
-                  key={q.id}
-                  q={q}
-                  n={i + 1}
-                  state={answers[q.id]}
-                  onAnswer={answerQuestion}
-                />
-              ))}
+              {visibleQuestions.map(
+                (q,i) => (
+                  <QuestionCard
+                    key={q.id}
+                    q={q}
+                    n={i + 1}
+                    state={
+                      answers[q.id]
+                    }
+                    onAnswer={
+                      answerQuestion
+                    }
+                  />
+                )
+              )}
             </div>
 
-            {questionLimit < filteredQuestions.length && (
+            {questionLimit <
+              filteredQuestions.length && (
               <div
                 style={{
                   display:'flex',
@@ -978,18 +1739,22 @@ function App() {
                 </button>
               </div>
             )}
+
           </section>
         )}
 
         {tab === 'simulado' && (
           <section className="panel">
+
             <div className="section-head">
               <div>
                 <div className="eyebrow">
                   SIMULADO
                 </div>
 
-                <h2>Simulado personalizado</h2>
+                <h2>
+                  Simulado personalizado
+                </h2>
 
                 <p className="muted">
                   O gabarito aparece somente
@@ -1000,19 +1765,31 @@ function App() {
 
             {simQuestions.length === 0 ? (
               <>
+
                 <div className="filters">
+
                   <label>
                     Conteúdo
 
                     <select
                       value={simMode}
                       onChange={e =>
-                        setSimMode(e.target.value)
+                        setSimMode(
+                          e.target.value
+                        )
                       }
                     >
-                      <option>Semana atual</option>
-                      <option>Tudo estudado</option>
-                      <option>Só pontos fracos</option>
+                      <option>
+                        Semana atual
+                      </option>
+
+                      <option>
+                        Tudo estudado
+                      </option>
+
+                      <option>
+                        Só pontos fracos
+                      </option>
                     </select>
                   </label>
 
@@ -1023,16 +1800,30 @@ function App() {
                       value={simQuantity}
                       onChange={e =>
                         setSimQuantity(
-                          Number(e.target.value)
+                          Number(
+                            e.target.value
+                          )
                         )
                       }
                     >
-                      <option value={10}>10 questões</option>
-                      <option value={20}>20 questões</option>
-                      <option value={30}>30 questões</option>
-                      <option value={40}>40 questões</option>
+                      <option value={10}>
+                        10 questões
+                      </option>
+
+                      <option value={20}>
+                        20 questões
+                      </option>
+
+                      <option value={30}>
+                        30 questões
+                      </option>
+
+                      <option value={40}>
+                        40 questões
+                      </option>
                     </select>
                   </label>
+
                 </div>
 
                 <div
@@ -1045,7 +1836,9 @@ function App() {
                   <label>
                     <input
                       type="checkbox"
-                      checked={includeAnswered}
+                      checked={
+                        includeAnswered
+                      }
                       onChange={e =>
                         setIncludeAnswered(
                           e.target.checked
@@ -1070,10 +1863,16 @@ function App() {
                   </label>
                 </div>
 
-                <div style={{ marginTop:'24px' }}>
+                <div
+                  style={{
+                    marginTop:'24px'
+                  }}
+                >
                   <button
                     className="primary"
-                    onClick={createSimulation}
+                    onClick={
+                      createSimulation
+                    }
                   >
                     Criar simulado
                   </button>
@@ -1086,71 +1885,108 @@ function App() {
                 )}
 
                 {simHistory.length > 0 && (
-                  <div style={{ marginTop:'35px' }}>
-                    <h3>Histórico de simulados</h3>
+                  <div
+                    style={{
+                      marginTop:'35px'
+                    }}
+                  >
+                    <h3>
+                      Histórico de simulados
+                    </h3>
 
                     <div className="edital-list">
-                      {simHistory.map(sim => (
-                        <div
-                          key={sim.id}
-                          className="edital-row"
-                        >
-                          <div>
-                            <strong>
-                              {sim.correct}/{sim.total}
-                            </strong>
-
+                      {simHistory.map(
+                        sim => (
+                          <div
+                            key={sim.id}
+                            className="edital-row"
+                          >
                             <div>
-                              {sim.mode}
+                              <strong>
+                                {sim.correct}/
+                                {sim.total}
+                              </strong>
+
+                              <div>
+                                {sim.mode}
+                              </div>
+
+                              <small className="muted">
+                                {new Date(
+                                  sim.created_at
+                                ).toLocaleString(
+                                  'pt-BR'
+                                )}
+                              </small>
                             </div>
 
-                            <small className="muted">
-                              {new Date(
-                                sim.created_at
-                              ).toLocaleString('pt-BR')}
-                            </small>
+                            <strong>
+                              {Number(
+                                sim.percentage
+                              ).toFixed(1)}%
+                            </strong>
                           </div>
-
-                          <strong>
-                            {Number(
-                              sim.percentage
-                            ).toFixed(1)}%
-                          </strong>
-                        </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
                 )}
+
               </>
             ) : (
               <>
+
                 <div className="section-head">
+
                   <div>
-                    <strong>{simMode}</strong>
+                    <strong>
+                      {simMode}
+                    </strong>
+
                     <p className="muted">
-                      {simQuestions.length} questões
+                      {
+                        simQuestions.length
+                      }{' '}
+                      questões
                     </p>
                   </div>
 
                   {!simFinished && (
                     <span className="counter">
-                      {Object.keys(simAnswers).length}/
-                      {simQuestions.length} respondidas
+                      {
+                        Object.keys(
+                          simAnswers
+                        ).length
+                      }
+                      /
+                      {
+                        simQuestions.length
+                      }{' '}
+                      respondidas
                     </span>
                   )}
+
                 </div>
 
                 <div className="question-list">
-                  {simQuestions.map((q,i) => (
-                    <SimulationQuestion
-                      key={q.id}
-                      q={q}
-                      n={i + 1}
-                      selected={simAnswers[q.id]}
-                      finished={simFinished}
-                      onSelect={selectSimulationAnswer}
-                    />
-                  ))}
+                  {simQuestions.map(
+                    (q,i) => (
+                      <SimulationQuestion
+                        key={q.id}
+                        q={q}
+                        n={i + 1}
+                        selected={
+                          simAnswers[q.id]
+                        }
+                        finished={
+                          simFinished
+                        }
+                        onSelect={
+                          selectSimulationAnswer
+                        }
+                      />
+                    )
+                  )}
                 </div>
 
                 {!simFinished && (
@@ -1163,13 +1999,17 @@ function App() {
                   >
                     <button
                       className="primary"
-                      onClick={finishSimulation}
+                      onClick={
+                        finishSimulation
+                      }
                     >
                       Finalizar simulado
                     </button>
 
                     <button
-                      onClick={resetSimulation}
+                      onClick={
+                        resetSimulation
+                      }
                     >
                       Cancelar
                     </button>
@@ -1182,79 +2022,114 @@ function App() {
                   </p>
                 )}
 
-                {simFinished && simResult && (
+                {simFinished &&
+                  simResult && (
                   <SimulationResult
-                    result={simResult}
-                    resetSimulation={resetSimulation}
+                    result={
+                      simResult
+                    }
+                    resetSimulation={
+                      resetSimulation
+                    }
                   />
                 )}
+
               </>
             )}
+
           </section>
         )}
 
         {tab === 'edital' && (
           <section className="panel">
+
             <div className="section-head">
               <div>
                 <div className="eyebrow">
                   PROGRESSO
                 </div>
 
-                <h2>Edital verticalizado</h2>
+                <h2>
+                  Edital verticalizado
+                </h2>
               </div>
             </div>
 
             <div className="edital-list">
-              {editalItems.map(item => (
-                <div
-                  className="edital-row"
-                  key={item.code}
-                >
-                  <div>
-                    <strong>{item.code}</strong>
-                    <div>{item.title}</div>
-                  </div>
-
-                  <select
-                    value={
-                      progress[`edital:${item.code}`] ||
-                      'Não iniciado'
-                    }
-                    onChange={e =>
-                      setItemProgress(
-                        `edital:${item.code}`,
-                        e.target.value
-                      )
-                    }
+              {editalItems.map(
+                item => (
+                  <div
+                    className="edital-row"
+                    key={item.code}
                   >
-                    <option>Não iniciado</option>
-                    <option>Em andamento</option>
-                    <option>Concluído</option>
-                  </select>
-                </div>
-              ))}
+                    <div>
+                      <strong>
+                        {item.code}
+                      </strong>
+
+                      <div>
+                        {item.title}
+                      </div>
+                    </div>
+
+                    <select
+                      value={
+                        progress[
+                          `edital:${item.code}`
+                        ] ||
+                        'Não iniciado'
+                      }
+                      onChange={e =>
+                        setItemProgress(
+                          `edital:${item.code}`,
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option>
+                        Não iniciado
+                      </option>
+
+                      <option>
+                        Em andamento
+                      </option>
+
+                      <option>
+                        Concluído
+                      </option>
+                    </select>
+                  </div>
+                )
+              )}
             </div>
+
           </section>
         )}
 
         {tab === 'erros' && (
           <section className="panel">
+
             <div className="section-head">
               <div>
                 <div className="eyebrow">
                   REVISÃO
                 </div>
 
-                <h2>Caderno de erros</h2>
+                <h2>
+                  Caderno de erros
+                </h2>
 
                 <p className="muted">
-                  Erros de questões normais e simulados.
+                  Erros de questões normais
+                  e simulados.
                 </p>
               </div>
 
               <span className="counter">
-                {activeErrors.length} para revisar
+                {
+                  activeErrors.length
+                }{' '}
+                para revisar
               </span>
             </div>
 
@@ -1263,81 +2138,112 @@ function App() {
                 Nenhum erro registrado ainda.
               </p>
             ) : (
-              errorNotebook.map(item => (
-                <div
-                  className="error-card"
-                  key={item.id}
-                  style={{
-                    opacity: item.reviewed ? 0.55 : 1
-                  }}
-                >
-                  <div className="q-meta">
-                    <span>
-                      {item.source}
-                    </span>
-
-                    <span>
-                      {item.theme}
-                    </span>
-                  </div>
-
-                  <p>
-                    <strong>
-                      {item.statement}
-                    </strong>
-                  </p>
-
-                  <p>
-                    <b>Sua resposta:</b>{' '}
-                    {item.selected_option}
-                    {' • '}
-                    <b>Correta:</b>{' '}
-                    {item.correct_option}
-                  </p>
-
-                  <p className="muted">
-                    {item.explanation}
-                  </p>
-
-                  <p>
-                    <b>Erros nessa questão:</b>{' '}
-                    {item.error_count}
-                  </p>
-
-                  <button
-                    className={item.reviewed ? '' : 'primary'}
-                    onClick={() =>
-                      markErrorReviewed(
-                        item.id,
-                        !item.reviewed
-                      )
-                    }
+              errorNotebook.map(
+                item => (
+                  <div
+                    className="error-card"
+                    key={item.id}
+                    style={{
+                      opacity:
+                        item.reviewed
+                          ? 0.55
+                          : 1
+                    }}
                   >
-                    {item.reviewed
-                      ? 'Marcar como pendente'
-                      : 'Marcar como revisado'}
-                  </button>
-                </div>
-              ))
+                    <div className="q-meta">
+                      <span>
+                        {item.source}
+                      </span>
+
+                      <span>
+                        {item.theme}
+                      </span>
+                    </div>
+
+                    <p>
+                      <strong>
+                        {
+                          item.statement
+                        }
+                      </strong>
+                    </p>
+
+                    <p>
+                      <b>
+                        Sua resposta:
+                      </b>{' '}
+                      {
+                        item.selected_option
+                      }
+                      {' • '}
+                      <b>
+                        Correta:
+                      </b>{' '}
+                      {
+                        item.correct_option
+                      }
+                    </p>
+
+                    <p className="muted">
+                      {
+                        item.explanation
+                      }
+                    </p>
+
+                    <p>
+                      <b>
+                        Erros nessa questão:
+                      </b>{' '}
+                      {
+                        item.error_count
+                      }
+                    </p>
+
+                    <button
+                      className={
+                        item.reviewed
+                          ? ''
+                          : 'primary'
+                      }
+                      onClick={() =>
+                        markErrorReviewed(
+                          item.id,
+                          !item.reviewed
+                        )
+                      }
+                    >
+                      {item.reviewed
+                        ? 'Marcar como pendente'
+                        : 'Marcar como revisado'}
+                    </button>
+                  </div>
+                )
+              )
             )}
+
           </section>
         )}
 
         {tab === 'conta' && (
           <section className="panel account-panel">
+
             <div>
               <div className="eyebrow">
                 SINCRONIZAÇÃO
               </div>
 
-              <h2>Conta</h2>
+              <h2>
+                Conta
+              </h2>
             </div>
 
             {session ? (
               <div>
                 <p>
                   ☁ Sincronizado como{' '}
-                  <b>{session.user.email}</b>
+                  <b>
+                    {session.user.email}
+                  </b>
                 </p>
 
                 <p className="muted">
@@ -1345,7 +2251,9 @@ function App() {
                   permanece salva automaticamente.
                 </p>
 
-                <button onClick={signOut}>
+                <button
+                  onClick={signOut}
+                >
                   Sair
                 </button>
               </div>
@@ -1359,7 +2267,9 @@ function App() {
                   placeholder="Seu e-mail"
                   value={email}
                   onChange={e =>
-                    setEmail(e.target.value)
+                    setEmail(
+                      e.target.value
+                    )
                   }
                   required
                 />
@@ -1369,7 +2279,9 @@ function App() {
                   placeholder="Senha"
                   value={password}
                   onChange={e =>
-                    setPassword(e.target.value)
+                    setPassword(
+                      e.target.value
+                    )
                   }
                   minLength="6"
                   required
@@ -1407,6 +2319,7 @@ function App() {
                 )}
               </form>
             )}
+
           </section>
         )}
 
@@ -1415,11 +2328,54 @@ function App() {
   )
 }
 
-function Stat({ label, value }) {
+function StudySection({
+  number,
+  title,
+  subtitle,
+  children
+}) {
+  return (
+    <div
+      style={{
+        marginTop:'35px'
+      }}
+    >
+      <div className="eyebrow">
+        ETAPA {number}
+      </div>
+
+      <h2>
+        {title}
+      </h2>
+
+      <p className="muted">
+        {subtitle}
+      </p>
+
+      <div
+        style={{
+          marginTop:'15px'
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function Stat({
+  label,
+  value
+}) {
   return (
     <div className="stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
+      <span>
+        {label}
+      </span>
+
+      <strong>
+        {value}
+      </strong>
     </div>
   )
 }
@@ -1431,33 +2387,44 @@ function LessonList({
 }) {
   return (
     <div className="lessons">
-      {plan.lessons.map((lesson,i) => {
-        const key = `lesson:${plan.id}:${i}`
-        const done =
-          progress[key] === 'Concluído'
 
-        return (
-          <label
-            className={`lesson ${done ? 'done' : ''}`}
-            key={key}
-          >
-            <input
-              type="checkbox"
-              checked={done}
-              onChange={e =>
-                setItemProgress(
-                  key,
-                  e.target.checked
-                    ? 'Concluído'
-                    : 'Não iniciado'
-                )
-              }
-            />
+      {plan.lessons.map(
+        (lesson,i) => {
+          const key =
+            `lesson:${plan.id}:${i}`
 
-            <span>{lesson}</span>
-          </label>
-        )
-      })}
+          const done =
+            progress[key] ===
+            'Concluído'
+
+          return (
+            <label
+              className={`lesson ${
+                done ? 'done' : ''
+              }`}
+              key={key}
+            >
+              <input
+                type="checkbox"
+                checked={done}
+                onChange={e =>
+                  setItemProgress(
+                    key,
+                    e.target.checked
+                      ? 'Concluído'
+                      : 'Não iniciado'
+                  )
+                }
+              />
+
+              <span>
+                {lesson}
+              </span>
+            </label>
+          )
+        }
+      )}
+
     </div>
   )
 }
@@ -1470,40 +2437,57 @@ function QuestionCard({
 }) {
   return (
     <article className="question-card">
+
       <div className="q-meta">
-        <span>Questão {n}</span>
-        <span>{q.day} • {q.theme}</span>
+        <span>
+          Questão {n}
+        </span>
+
+        <span>
+          {q.day} • {q.theme}
+        </span>
       </div>
 
-      <h3>{q.statement}</h3>
+      <h3>
+        {q.statement}
+      </h3>
 
       <div className="options">
-        {Object.entries(q.options).map(
-          ([key,text]) => (
-            <button
-              key={key}
-              disabled={Boolean(state)}
-              onClick={() => onAnswer(q,key)}
-              className={
-                state
-                  ? key === q.correct
-                    ? 'correct'
-                    : state.selected === key
-                      ? 'wrong'
-                      : ''
-                  : ''
-              }
-            >
-              <b>{key}</b> {text}
-            </button>
-          )
-        )}
+
+        {Object.entries(
+          q.options
+        ).map(([key,text]) => (
+          <button
+            key={key}
+            disabled={Boolean(state)}
+            onClick={() =>
+              onAnswer(q,key)
+            }
+            className={
+              state
+                ? key === q.correct
+                  ? 'correct'
+                  : state.selected === key
+                    ? 'wrong'
+                    : ''
+                : ''
+            }
+          >
+            <b>
+              {key}
+            </b>{' '}
+            {text}
+          </button>
+        ))}
+
       </div>
 
       {state && (
         <div
           className={`feedback ${
-            state.correct ? 'ok' : 'bad'
+            state.correct
+              ? 'ok'
+              : 'bad'
           }`}
         >
           <b>
@@ -1511,13 +2495,16 @@ function QuestionCard({
               ? 'Correto.'
               : 'Revisar.'}
           </b>{' '}
+
           {q.explanation}
         </div>
       )}
 
       <div className="source">
-        {q.sourceType} • {q.sourceLabel}
+        {q.sourceType} •{' '}
+        {q.sourceLabel}
       </div>
+
     </article>
   )
 }
@@ -1531,42 +2518,64 @@ function SimulationQuestion({
 }) {
   return (
     <article className="question-card">
+
       <div className="q-meta">
-        <span>Questão {n}</span>
-        <span>{q.theme}</span>
+        <span>
+          Questão {n}
+        </span>
+
+        <span>
+          {q.theme}
+        </span>
       </div>
 
-      <h3>{q.statement}</h3>
+      <h3>
+        {q.statement}
+      </h3>
 
       <div className="options">
-        {Object.entries(q.options).map(
-          ([key,text]) => {
-            let className = ''
 
-            if (finished) {
-              if (key === q.correct) {
-                className = 'correct'
-              } else if (selected === key) {
-                className = 'wrong'
-              }
-            } else if (selected === key) {
-              className = 'selected'
+        {Object.entries(
+          q.options
+        ).map(([key,text]) => {
+          let className = ''
+
+          if (finished) {
+            if (
+              key === q.correct
+            ) {
+              className = 'correct'
+            } else if (
+              selected === key
+            ) {
+              className = 'wrong'
             }
-
-            return (
-              <button
-                key={key}
-                className={className}
-                onClick={() =>
-                  onSelect(q.id,key)
-                }
-                disabled={finished}
-              >
-                <b>{key}</b> {text}
-              </button>
-            )
+          } else if (
+            selected === key
+          ) {
+            className = 'selected'
           }
-        )}
+
+          return (
+            <button
+              key={key}
+              className={className}
+              onClick={() =>
+                onSelect(
+                  q.id,
+                  key
+                )
+              }
+              disabled={finished}
+            >
+              <b>
+                {key}
+              </b>{' '}
+              {text}
+            </button>
+          )
+        })}
+
       </div>
 
       {finished && (
@@ -1586,6 +2595,7 @@ function SimulationQuestion({
           {q.explanation}
         </div>
       )}
+
     </article>
   )
 }
@@ -1597,14 +2607,17 @@ function SimulationResult({
   return (
     <div
       className="panel"
-      style={{ marginTop:'30px' }}
+      style={{
+        marginTop:'30px'
+      }}
     >
       <div className="eyebrow">
         RESULTADO
       </div>
 
       <h2>
-        {result.correct}/{result.total}
+        {result.correct}/
+        {result.total}
         {' — '}
         {result.percentage}%
       </h2>
@@ -1614,41 +2627,55 @@ function SimulationResult({
       </h3>
 
       <div className="edital-list">
+
         {Object.entries(
           result.themeStats
-        ).map(([theme,stats]) => {
-          const pct =
-            Math.round(
-              stats.correct /
-              stats.total *
-              100
+        ).map(
+          ([theme,stats]) => {
+            const pct =
+              Math.round(
+                stats.correct /
+                stats.total *
+                100
+              )
+
+            return (
+              <div
+                className="edital-row"
+                key={theme}
+              >
+                <div>
+                  {theme}
+                </div>
+
+                <strong>
+                  {stats.correct}/
+                  {stats.total}
+                  {' • '}
+                  {pct}%
+                </strong>
+              </div>
             )
+          }
+        )}
 
-          return (
-            <div
-              className="edital-row"
-              key={theme}
-            >
-              <div>{theme}</div>
-
-              <strong>
-                {stats.correct}/{stats.total}
-                {' • '}
-                {pct}%
-              </strong>
-            </div>
-          )
-        })}
       </div>
 
-      <div style={{ marginTop:'20px' }}>
+      <div
+        style={{
+          marginTop:'20px'
+        }}
+      >
         <button
           className="primary"
-          onClick={resetSimulation}
+          onClick={
+            resetSimulation
+          }
         >
           Criar outro simulado
         </button>
       </div>
+
     </div>
   )
 }
