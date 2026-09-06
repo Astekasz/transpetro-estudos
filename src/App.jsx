@@ -25,9 +25,6 @@ const weekStudyDays = [
 const CONTENT_MINUTES = 105
 const QUESTIONS_MINUTES = 45
 const REVIEW_MINUTES = 30
-
-// Como o studyPlan atual não guarda a duração individual
-// das aulas, usamos 35 min como unidade de planejamento.
 const ESTIMATED_LESSON_MINUTES = 35
 
 function shuffle(array) {
@@ -57,6 +54,9 @@ function App() {
   const [dayFilter, setDayFilter] = useState('Todos')
   const [themeFilter, setThemeFilter] = useState('Todos')
   const [questionLimit, setQuestionLimit] = useState(10)
+
+  // Blocos de questões abertos no Estudar hoje
+  const [openStudyBlocks, setOpenStudyBlocks] = useState({})
 
   // SIMULADO
   const [simMode, setSimMode] = useState('Semana atual')
@@ -127,7 +127,6 @@ function App() {
 
   useEffect(() => {
     if (!cloudEnabled || !session?.user) return
-
     loadCloudState()
   }, [session])
 
@@ -287,8 +286,7 @@ function App() {
 
       const found =
         existing.find(
-          item =>
-            item.question_id === q.id
+          item => item.question_id === q.id
         )
 
       let next
@@ -338,8 +336,7 @@ function App() {
 
     const existing =
       errorNotebook.find(
-        item =>
-          item.question_id === q.id
+        item => item.question_id === q.id
       )
 
     const payload = {
@@ -414,10 +411,7 @@ function App() {
         .from('error_notebook')
         .update({ reviewed })
         .eq('id', id)
-        .eq(
-          'user_id',
-          session.user.id
-        )
+        .eq('user_id', session.user.id)
         .select()
         .single()
 
@@ -438,7 +432,8 @@ function App() {
 
   async function answerQuestion(
     q,
-    selected
+    selected,
+    source = 'Questão normal'
   ) {
     const isCorrect =
       selected === q.correct
@@ -459,7 +454,7 @@ function App() {
       await addErrorToNotebook(
         q,
         selected,
-        'Questão normal'
+        source
       )
     }
 
@@ -468,7 +463,6 @@ function App() {
         'tp_answers',
         JSON.stringify(next)
       )
-
       return
     }
 
@@ -542,6 +536,52 @@ function App() {
     )
 
   // =========================================================
+  // QUESTÕES EMBUTIDAS NO ESTUDAR HOJE
+  // =========================================================
+
+  function isQuestionTask(item) {
+    return /quest/i.test(item.lesson)
+  }
+
+  function getQuestionsForStudyItem(item) {
+    const exactTheme =
+      questions.filter(
+        q => q.theme === item.theme
+      )
+
+    const sameDay =
+      questions.filter(
+        q => q.day === item.day
+      )
+
+    const combined = []
+    const seen = new Set()
+
+    for (const q of [
+      ...exactTheme,
+      ...sameDay
+    ]) {
+      if (!seen.has(q.id)) {
+        seen.add(q.id)
+        combined.push(q)
+      }
+
+      if (combined.length >= 10) {
+        break
+      }
+    }
+
+    return combined
+  }
+
+  function toggleStudyBlock(key) {
+    setOpenStudyBlocks(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
+  }
+
+  // =========================================================
   // ESTUDAR HOJE — MOTOR ADAPTATIVO
   // =========================================================
 
@@ -596,8 +636,6 @@ function App() {
         }
       )
 
-      // Ordenação explícita:
-      // mais antigo -> mais recente
       overdue.sort(
         (a,b) =>
           a.planIndex - b.planIndex ||
@@ -610,7 +648,6 @@ function App() {
           ESTIMATED_LESSON_MINUTES
         )
 
-      // ATRASADOS TÊM PRIORIDADE ABSOLUTA
       const selectedOverdue =
         overdue.slice(
           0,
@@ -646,7 +683,6 @@ function App() {
         )
       ]
 
-      // Temas do que entrou na sessão
       const sessionThemes =
         new Set(
           contentQueue.map(
@@ -654,8 +690,6 @@ function App() {
           )
         )
 
-      // Questões prioritariamente ligadas
-      // aos conteúdos da sessão.
       let questionPool =
         questions.filter(
           q =>
@@ -664,8 +698,6 @@ function App() {
             )
         )
 
-      // Se os nomes de tema não casarem exatamente,
-      // usa os dias envolvidos.
       if (
         questionPool.length < 10
       ) {
@@ -683,8 +715,6 @@ function App() {
           )
       }
 
-      // Se ainda não houver conteúdo suficiente,
-      // usa questões da semana.
       if (
         questionPool.length < 10
       ) {
@@ -697,7 +727,6 @@ function App() {
           )
       }
 
-      // Prioriza não respondidas
       const unanswered =
         shuffle(
           questionPool.filter(
@@ -1380,7 +1409,7 @@ function App() {
             <StudySection
               number="1"
               title={`Conteúdo • ${CONTENT_MINUTES} min`}
-              subtitle="Atrasados primeiro. O conteúdo novo só entra se houver espaço."
+              subtitle="Atrasados primeiro. Quando a pendência for de questões, você pode resolvê-las aqui mesmo."
             >
 
               {adaptiveSession
@@ -1392,75 +1421,234 @@ function App() {
               ) : (
                 adaptiveSession
                   .contentQueue
-                  .map(item => (
-                    <div
-                      className="day-card"
-                      key={item.key}
-                      style={{
-                        marginBottom:'12px'
-                      }}
-                    >
-                      <div className="q-meta">
-                        <span>
-                          {item.type === 'overdue'
-                            ? '⚠ ATRASADO'
-                            : 'HOJE'}
-                        </span>
+                  .map(item => {
+                    const questionTask =
+                      isQuestionTask(item)
 
-                        <span>
-                          {item.day}
-                        </span>
-                      </div>
+                    const blockQuestions =
+                      questionTask
+                        ? getQuestionsForStudyItem(item)
+                        : []
 
-                      <strong>
-                        {item.theme}
-                      </strong>
+                    const answeredBlock =
+                      blockQuestions.filter(
+                        q => answers[q.id]
+                      ).length
 
-                      <label
-                        className={`lesson ${
-                          progress[
-                            item.key
-                          ] ===
-                          'Concluído'
-                            ? 'done'
-                            : ''
-                        }`}
+                    const blockFinished =
+                      blockQuestions.length > 0 &&
+                      answeredBlock ===
+                        blockQuestions.length
+
+                    const isOpen =
+                      Boolean(
+                        openStudyBlocks[
+                          item.key
+                        ]
+                      )
+
+                    return (
+                      <div
+                        className="day-card"
+                        key={item.key}
                         style={{
-                          marginTop:'10px'
+                          marginBottom:'16px'
                         }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={
-                            progress[
-                              item.key
-                            ] ===
-                            'Concluído'
-                          }
-                          onChange={e =>
-                            setItemProgress(
-                              item.key,
-                              e.target.checked
-                                ? 'Concluído'
-                                : 'Não iniciado'
-                            )
-                          }
-                        />
+                        <div className="q-meta">
+                          <span>
+                            {item.type === 'overdue'
+                              ? '⚠ ATRASADO'
+                              : 'HOJE'}
+                          </span>
 
-                        <span>
+                          <span>
+                            {item.day}
+                          </span>
+                        </div>
+
+                        <strong>
+                          {item.theme}
+                        </strong>
+
+                        <p
+                          style={{
+                            marginTop:'10px'
+                          }}
+                        >
                           {item.lesson}
-                        </span>
-                      </label>
-                    </div>
-                  ))
+                        </p>
+
+                        {!questionTask && (
+                          <label
+                            className={`lesson ${
+                              progress[
+                                item.key
+                              ] ===
+                              'Concluído'
+                                ? 'done'
+                                : ''
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={
+                                progress[
+                                  item.key
+                                ] ===
+                                'Concluído'
+                              }
+                              onChange={e =>
+                                setItemProgress(
+                                  item.key,
+                                  e.target.checked
+                                    ? 'Concluído'
+                                    : 'Não iniciado'
+                                )
+                              }
+                            />
+
+                            <span>
+                              Marcar conteúdo como concluído
+                            </span>
+                          </label>
+                        )}
+
+                        {questionTask && (
+                          <div
+                            style={{
+                              marginTop:'15px'
+                            }}
+                          >
+                            <div
+                              style={{
+                                display:'flex',
+                                justifyContent:'space-between',
+                                alignItems:'center',
+                                gap:'12px',
+                                flexWrap:'wrap'
+                              }}
+                            >
+                              <span>
+                                <b>
+                                  {answeredBlock}/
+                                  {blockQuestions.length}
+                                </b>{' '}
+                                questões respondidas
+                              </span>
+
+                              {blockQuestions.length > 0 && (
+                                <button
+                                  className="primary"
+                                  onClick={() =>
+                                    toggleStudyBlock(
+                                      item.key
+                                    )
+                                  }
+                                >
+                                  {isOpen
+                                    ? 'Fechar questões'
+                                    : answeredBlock > 0
+                                      ? 'Continuar questões'
+                                      : 'Começar questões'}
+                                </button>
+                              )}
+                            </div>
+
+                            {blockQuestions.length === 0 && (
+                              <p className="muted">
+                                Ainda não existem questões cadastradas para este bloco.
+                              </p>
+                            )}
+
+                            {isOpen &&
+                              blockQuestions.length > 0 && (
+                              <div
+                                className="question-list"
+                                style={{
+                                  marginTop:'20px'
+                                }}
+                              >
+                                {blockQuestions.map(
+                                  (q,i) => (
+                                    <QuestionCard
+                                      key={q.id}
+                                      q={q}
+                                      n={i + 1}
+                                      state={
+                                        answers[q.id]
+                                      }
+                                      onAnswer={(
+                                        question,
+                                        selected
+                                      ) =>
+                                        answerQuestion(
+                                          question,
+                                          selected,
+                                          'Estudar hoje'
+                                        )
+                                      }
+                                    />
+                                  )
+                                )}
+                              </div>
+                            )}
+
+                            <div
+                              style={{
+                                marginTop:'15px'
+                              }}
+                            >
+                              {progress[item.key] ===
+                              'Concluído' ? (
+                                <button
+                                  onClick={() =>
+                                    setItemProgress(
+                                      item.key,
+                                      'Não iniciado'
+                                    )
+                                  }
+                                >
+                                  ✓ Bloco concluído
+                                </button>
+                              ) : (
+                                <button
+                                  className={
+                                    blockFinished
+                                      ? 'primary'
+                                      : ''
+                                  }
+                                  disabled={
+                                    blockQuestions.length >
+                                      0 &&
+                                    !blockFinished
+                                  }
+                                  onClick={() =>
+                                    setItemProgress(
+                                      item.key,
+                                      'Concluído'
+                                    )
+                                  }
+                                >
+                                  {blockFinished
+                                    ? 'Marcar bloco como concluído'
+                                    : 'Responda todas para concluir'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
               )}
 
             </StudySection>
 
             <StudySection
               number="2"
-              title={`Questões • ${QUESTIONS_MINUTES} min`}
-              subtitle="10 questões ligadas ao conteúdo priorizado na sessão."
+              title={`Questões complementares • ${QUESTIONS_MINUTES} min`}
+              subtitle="Depois das pendências, o site mantém um bloco de questões ligadas aos conteúdos priorizados."
             >
 
               {adaptiveSession
@@ -1481,8 +1669,15 @@ function App() {
                         state={
                           answers[q.id]
                         }
-                        onAnswer={
-                          answerQuestion
+                        onAnswer={(
+                          question,
+                          selected
+                        ) =>
+                          answerQuestion(
+                            question,
+                            selected,
+                            'Estudar hoje'
+                          )
                         }
                       />
                     ))}
@@ -1765,7 +1960,6 @@ function App() {
 
             {simQuestions.length === 0 ? (
               <>
-
                 <div className="filters">
 
                   <label>
@@ -1935,7 +2129,6 @@ function App() {
               </>
             ) : (
               <>
-
                 <div className="section-head">
 
                   <div>
@@ -2120,8 +2313,8 @@ function App() {
                 </h2>
 
                 <p className="muted">
-                  Erros de questões normais
-                  e simulados.
+                  Erros de questões normais,
+                  Estudar hoje e simulados.
                 </p>
               </div>
 
