@@ -1,0 +1,5 @@
+.options button.pending-confirmation{border-color:#e1a63a!important;background:#fff7df!important;box-shadow:0 0 0 2px rgba(225,166,58,.18)}
+.answer-confirmation-control{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:11px 12px;border:1px solid #f0d898;border-radius:10px;background:#fffaf0}
+.answer-confirmation-text{font-size:13px;color:#6b5a35}
+.answer-confirmation-button{border:0!important;background:#f2b84b!important;color:#18242a!important;font-weight:800!important;padding:10px 14px!important;border-radius:10px!important;cursor:pointer!important;white-space:nowrap}
+@media(max-width:760px){.answer-confirmation-control{align-items:stretch;flex-direction:column}.answer-confirmation-button{width:100%}}
