@@ -6,6 +6,7 @@ import TranscriptLibrary from './TranscriptLibrary'
 import LessonTranscriptButtons from './LessonTranscriptButtons'
 import LessonNotes from './LessonNotes'
 import AnswerBalancer from './AnswerBalancer'
+import ErrorNotebookDetails from './ErrorNotebookDetails'
 import './styles.css'
 import './lessonTranscriptButtons.css'
 import './lessonNotes.css'
@@ -18,5 +19,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <TranscriptLibrary />
     <LessonNotes />
     <AnswerBalancer />
+    <ErrorNotebookDetails />
   </React.StrictMode>,
 )
