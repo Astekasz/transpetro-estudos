@@ -41,6 +41,27 @@ export default function TranscriptLibrary() {
   }, [])
 
   useEffect(() => {
+    const handleOpen = event => {
+      const nextPlanId = event.detail?.planId
+      const nextLessonIndex = Number(event.detail?.lessonIndex)
+      const nextPlan = studyPlan.find(plan => plan.id === nextPlanId)
+
+      if (nextPlan && Number.isInteger(nextLessonIndex) && nextPlan.lessons[nextLessonIndex] !== undefined) {
+        setPlanId(nextPlan.id)
+        setLessonIndex(nextLessonIndex)
+      }
+
+      setFile(null)
+      setNotes('')
+      setMessage('')
+      setOpen(true)
+    }
+
+    window.addEventListener('open-transcript-library', handleOpen)
+    return () => window.removeEventListener('open-transcript-library', handleOpen)
+  }, [])
+
+  useEffect(() => {
     if (open && session?.user) loadRecords()
   }, [open, session?.user?.id])
 
@@ -129,50 +150,49 @@ export default function TranscriptLibrary() {
     setMessage('Degravação excluída.')
   }
 
-  return <>
-    <button className="transcript-fab" onClick={() => setOpen(true)} aria-label="Abrir degravações">📎 Degravações</button>
-    {open && <div className="transcript-overlay" onMouseDown={e => e.target === e.currentTarget && setOpen(false)}>
-      <section className="transcript-modal" role="dialog" aria-modal="true" aria-label="Biblioteca de degravações">
-        <div className="transcript-head">
-          <div><div className="eyebrow">MATERIAIS DA AULA</div><h2>Degravações</h2><p className="muted">Arquivos privados, vinculados à aula e disponíveis em qualquer dispositivo.</p></div>
-          <button className="transcript-close" onClick={() => setOpen(false)}>Fechar</button>
+  if (!open) return null
+
+  return <div className="transcript-overlay" onMouseDown={e => e.target === e.currentTarget && setOpen(false)}>
+    <section className="transcript-modal" role="dialog" aria-modal="true" aria-label="Biblioteca de degravações">
+      <div className="transcript-head">
+        <div><div className="eyebrow">MATERIAIS DA AULA</div><h2>Degravação da aula</h2><p className="muted">Arquivo privado, vinculado diretamente à aula e disponível em qualquer dispositivo.</p></div>
+        <button className="transcript-close" onClick={() => setOpen(false)}>Fechar</button>
+      </div>
+
+      {!cloudEnabled ? <div className="notice">A sincronização com Supabase precisa estar ativa para armazenar arquivos.</div> : !session ? <div className="notice">Entre na sua conta na aba <b>Conta</b> para enviar e baixar degravações.</div> : <>
+        <div className="transcript-selectors">
+          <label>Dia / tema
+            <select value={planId} onChange={e => changePlan(e.target.value)}>{studyPlan.map(plan => <option key={plan.id} value={plan.id}>{plan.day} — {plan.theme}</option>)}</select>
+          </label>
+          <label>Aula
+            <select value={lessonIndex} onChange={e => { setLessonIndex(Number(e.target.value)); setMessage('') }}>{selectedPlan.lessons.map((lesson, i) => <option key={`${selectedPlan.id}-${i}`} value={i}>{i + 1}. {lesson}</option>)}</select>
+          </label>
         </div>
 
-        {!cloudEnabled ? <div className="notice">A sincronização com Supabase precisa estar ativa para armazenar arquivos.</div> : !session ? <div className="notice">Entre na sua conta na aba <b>Conta</b> para enviar e baixar degravações.</div> : <>
-          <div className="transcript-selectors">
-            <label>Dia / tema
-              <select value={planId} onChange={e => changePlan(e.target.value)}>{studyPlan.map(plan => <option key={plan.id} value={plan.id}>{plan.day} — {plan.theme}</option>)}</select>
-            </label>
-            <label>Aula
-              <select value={lessonIndex} onChange={e => { setLessonIndex(Number(e.target.value)); setMessage('') }}>{selectedPlan.lessons.map((lesson, i) => <option key={`${selectedPlan.id}-${i}`} value={i}>{i + 1}. {lesson}</option>)}</select>
-            </label>
-          </div>
+        <div className="transcript-lesson-card">
+          <span className="eyebrow">AULA SELECIONADA</span>
+          <strong>{selectedLesson}</strong>
+          <span className="muted">{selectedPlan.day} • {selectedPlan.theme}</span>
+        </div>
 
-          <div className="transcript-lesson-card">
-            <span className="eyebrow">AULA SELECIONADA</span>
-            <strong>{selectedLesson}</strong>
-            <span className="muted">{selectedPlan.day} • {selectedPlan.theme}</span>
-          </div>
+        <form className="transcript-form" onSubmit={uploadTranscript}>
+          <label>Arquivo
+            <input id="transcript-file-input" type="file" accept={ACCEPT} onChange={e => setFile(e.target.files?.[0] || null)} />
+          </label>
+          <label>Observações / pontos importantes <span className="muted">(opcional)</span>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex.: revisar diferença entre prevenção e precaução; passar esquema para o caderno." rows={4} />
+          </label>
+          <div className="transcript-upload-row"><span className="muted">PDF, DOC, DOCX ou TXT • até 15 MB</span><button className="primary" type="submit" disabled={busy}>{busy ? 'Enviando…' : 'Salvar degravação'}</button></div>
+        </form>
 
-          <form className="transcript-form" onSubmit={uploadTranscript}>
-            <label>Arquivo
-              <input id="transcript-file-input" type="file" accept={ACCEPT} onChange={e => setFile(e.target.files?.[0] || null)} />
-            </label>
-            <label>Observações / pontos importantes <span className="muted">(opcional)</span>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex.: revisar diferença entre prevenção e precaução; passar esquema para o caderno." rows={4} />
-            </label>
-            <div className="transcript-upload-row"><span className="muted">PDF, DOC, DOCX ou TXT • até 15 MB</span><button className="primary" type="submit" disabled={busy}>{busy ? 'Enviando…' : 'Salvar degravação'}</button></div>
-          </form>
+        {message && <div className="notice transcript-message">{message}</div>}
 
-          {message && <div className="notice transcript-message">{message}</div>}
-
-          <div className="transcript-list-head"><h3>Arquivos desta aula</h3><span className="counter">{currentRecords.length}</span></div>
-          {!currentRecords.length ? <p className="empty">Nenhuma degravação salva para esta aula.</p> : <div className="transcript-list">{currentRecords.map(record => <article className="transcript-item" key={record.id}>
-            <div><strong>📄 {record.file_name}</strong><div className="muted transcript-meta">{formatBytes(record.file_size)}{record.created_at ? ` • ${new Date(record.created_at).toLocaleString('pt-BR')}` : ''}</div>{record.notes && <p className="transcript-notes">{record.notes}</p>}</div>
-            <div className="transcript-actions"><button className="primary" onClick={() => downloadTranscript(record)}>Baixar</button><button disabled={busy} onClick={() => removeTranscript(record)}>Excluir</button></div>
-          </article>)}</div>}
-        </>}
-      </section>
-    </div>}
-  </>
+        <div className="transcript-list-head"><h3>Arquivos desta aula</h3><span className="counter">{currentRecords.length}</span></div>
+        {!currentRecords.length ? <p className="empty">Nenhuma degravação salva para esta aula.</p> : <div className="transcript-list">{currentRecords.map(record => <article className="transcript-item" key={record.id}>
+          <div><strong>📄 {record.file_name}</strong><div className="muted transcript-meta">{formatBytes(record.file_size)}{record.created_at ? ` • ${new Date(record.created_at).toLocaleString('pt-BR')}` : ''}</div>{record.notes && <p className="transcript-notes">{record.notes}</p>}</div>
+          <div className="transcript-actions"><button className="primary" onClick={() => downloadTranscript(record)}>Baixar</button><button disabled={busy} onClick={() => removeTranscript(record)}>Excluir</button></div>
+        </article>)}</div>}
+      </>}
+    </section>
+  </div>
 }
