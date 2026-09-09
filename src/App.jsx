@@ -64,7 +64,7 @@ function App() {
 
   const [dayFilter, setDayFilter] = useState('Todos')
   const [themeFilter, setThemeFilter] = useState('Todos')
-  const [questionLimit, setQuestionLimit] = useState(10)
+  const [questionLimit, setQuestionLimit] = useState(20)
   const [openStudyBlocks, setOpenStudyBlocks] = useState({})
 
   const [simMode, setSimMode] = useState('Semana atual')
@@ -236,7 +236,7 @@ function App() {
   const themes = useMemo(() => ['Todos', ...new Set(questions.map(q => q.theme))], [])
   const filteredQuestions = questions.filter(q => (dayFilter === 'Todos' || q.day === dayFilter) && (themeFilter === 'Todos' || q.theme === themeFilter))
   const visibleQuestions = filteredQuestions.slice(0, questionLimit)
-  useEffect(() => setQuestionLimit(10), [dayFilter, themeFilter])
+  useEffect(() => setQuestionLimit(20), [dayFilter, themeFilter])
 
   const activeErrors = errorNotebook.filter(item => !item.reviewed)
   const answeredCount = Object.keys(answers).length
@@ -280,7 +280,7 @@ function App() {
     const combined = []
     for (const q of [...exact, ...sameDay]) {
       if (!seen.has(q.id)) { seen.add(q.id); combined.push(q) }
-      if (combined.length >= 10) break
+      if (combined.length >= 20) break
     }
     return combined
   }
@@ -326,7 +326,7 @@ function App() {
       if (err) s += 3 + (err.error_count || 1)
       return s + Math.random()
     }
-    const todayQuestions = [...pool].sort((a,b) => score(b) - score(a)).slice(0,10)
+    const todayQuestions = [...pool].sort((a,b) => score(b) - score(a)).slice(0,20)
     const reviewItems = activeErrors.slice().sort((a,b) => (b.error_count || 1) - (a.error_count || 1)).slice(0,5)
 
     let nextAction = 'Sessão concluída'
@@ -341,7 +341,7 @@ function App() {
 
   const estimatedDoneMinutes = Math.min(180,
     adaptiveSession.contentQueue.filter(item => progress[item.key] === 'Concluído').length * ESTIMATED_LESSON_MINUTES +
-    adaptiveSession.todayQuestions.filter(q => answers[q.id]).length * (QUESTIONS_MINUTES / 10)
+    adaptiveSession.todayQuestions.filter(q => answers[q.id]).length * (QUESTIONS_MINUTES / 20)
   )
 
   const studiedDays = useMemo(() => {
@@ -532,7 +532,7 @@ function App() {
           <div className="section-head"><div><div className="eyebrow">QUESTÕES</div><h2>Escolha por dia ou tema</h2></div><span className="counter">{filteredQuestions.length} disponíveis</span></div>
           <div className="filters"><label>Dia<select value={dayFilter} onChange={e => setDayFilter(e.target.value)}>{['Todos',...weekDayMap.slice(1),'Domingo'].filter((v,i,a)=>a.indexOf(v)===i).map(d => <option key={d}>{d}</option>)}</select></label><label>Tema<select value={themeFilter} onChange={e => setThemeFilter(e.target.value)}>{themes.map(t => <option key={t}>{t}</option>)}</select></label></div>
           <div className="question-list">{visibleQuestions.map((q,i) => <QuestionCard key={q.id} q={q} n={i+1} state={answers[q.id]} onAnswer={answerQuestion} />)}</div>
-          {questionLimit < filteredQuestions.length && <div style={{display:'flex',justifyContent:'center',marginTop:20}}><button className="primary" onClick={() => setQuestionLimit(v => Math.min(v+10, filteredQuestions.length))}>Mostrar mais 10 questões</button></div>}
+          {questionLimit < filteredQuestions.length && <div style={{display:'flex',justifyContent:'center',marginTop:20}}><button className="primary" onClick={() => setQuestionLimit(v => Math.min(v+20, filteredQuestions.length))}>Mostrar mais 20 questões</button></div>}
         </section>}
 
         {tab === 'simulado' && <section className="panel">

@@ -99,8 +99,8 @@ export default function AnswerBalancer() {
       const lists = [...document.querySelectorAll('.question-list')]
       lists.forEach(list => {
         const cards = [...list.children].filter(node => node.classList?.contains('question-card'))
-        for (let start = 0; start < cards.length; start += 10) {
-          balanceChunk(cards.slice(start, start + 10), Math.floor(start / 10))
+        for (let start = 0; start < cards.length; start += 20) {
+          balanceChunk(cards.slice(start, start + 20), Math.floor(start / 20))
         }
       })
     }
