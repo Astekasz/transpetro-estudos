@@ -1,0 +1,39 @@
+name: Ensure 20 question pool
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ensure-20-question-pool.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Garantir pool de pelo menos 20 questões
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/App.jsx')
+          text = p.read_text()
+          old = "if (pool.length < 10)"
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f'Esperava 2 ocorrências de {old!r}, encontrei {count}')
+          text = text.replace(old, "if (pool.length < 20)")
+          p.write_text(text)
+          PY
+      - name: Commitar alteração
+        run: |
+          rm .github/workflows/ensure-20-question-pool.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.jsx .github/workflows/ensure-20-question-pool.yml
+          git commit -m "fix: garante pelo menos 20 questões no bloco adaptativo"
+          git push origin main
