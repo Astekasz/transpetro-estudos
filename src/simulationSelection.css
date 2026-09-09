@@ -1,0 +1,13 @@
+.options button.selected {
+  border-color: #4f89ad !important;
+  background: #e8f2f8 !important;
+  box-shadow: inset 4px 0 0 #4f89ad;
+  font-weight: 700;
+}
+
+.options button.selected::after {
+  content: '  ✓ selecionada';
+  font-size: 12px;
+  font-weight: 800;
+  margin-left: 8px;
+}
