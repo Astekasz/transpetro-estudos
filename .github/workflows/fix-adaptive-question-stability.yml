@@ -15,8 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Patch adaptive questions
-        shell: python
         run: |
+          python - <<'PY'
           from pathlib import Path
           p = Path('src/App.jsx')
           s = p.read_text()
@@ -33,19 +33,22 @@ jobs:
               s = s.replace(cloud_marker, "    adaptiveQuestionsRef.current = { key: null, ids: [] }\n" + cloud_marker)
 
           old = "    const todayQuestions = [...pool].sort((a,b) => score(b) - score(a)).slice(0,20)"
-          new = """    const questionContextKey = `${todayName}|${contentQueue.map(item => item.key).join('|')}`
-    let todayQuestions = []
-    if (adaptiveQuestionsRef.current.key === questionContextKey && adaptiveQuestionsRef.current.ids.length) {
-      todayQuestions = adaptiveQuestionsRef.current.ids.map(id => pool.find(q => q.id === id)).filter(Boolean)
-    }
-    if (!todayQuestions.length) {
-      todayQuestions = [...pool].sort((a,b) => score(b) - score(a)).slice(0,20)
-      adaptiveQuestionsRef.current = { key: questionContextKey, ids: todayQuestions.map(q => q.id) }
-    }"""
+          new = (
+              "    const questionContextKey = `${todayName}|${contentQueue.map(item => item.key).join('|')}`\n"
+              "    let todayQuestions = []\n"
+              "    if (adaptiveQuestionsRef.current.key === questionContextKey && adaptiveQuestionsRef.current.ids.length) {\n"
+              "      todayQuestions = adaptiveQuestionsRef.current.ids.map(id => pool.find(q => q.id === id)).filter(Boolean)\n"
+              "    }\n"
+              "    if (!todayQuestions.length) {\n"
+              "      todayQuestions = [...pool].sort((a,b) => score(b) - score(a)).slice(0,20)\n"
+              "      adaptiveQuestionsRef.current = { key: questionContextKey, ids: todayQuestions.map(q => q.id) }\n"
+              "    }"
+          )
           if old in s:
               s = s.replace(old, new)
 
           p.write_text(s)
+          PY
       - name: Commit fix
         run: |
           git config user.name "Astekasz"
