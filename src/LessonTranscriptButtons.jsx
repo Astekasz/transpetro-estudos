@@ -1,6 +1,23 @@
 import { useEffect } from 'react'
 import { studyPlan } from './data/studyPlan'
 
+function isActualLesson(title = '') {
+  const text = title.trim().toLowerCase()
+  if (!text) return false
+
+  // Blocos de prática/revisão não possuem degravação de videoaula.
+  return !(
+    text.startsWith('questão') ||
+    text.startsWith('questões') ||
+    text.startsWith('revisão') ||
+    text.startsWith('simulado') ||
+    text.startsWith('flashcard') ||
+    text.startsWith('resumo') ||
+    text.startsWith('correção') ||
+    /^\d+\s*(h|min)/i.test(text)
+  )
+}
+
 export default function LessonTranscriptButtons() {
   useEffect(() => {
     function addButtons() {
@@ -12,14 +29,22 @@ export default function LessonTranscriptButtons() {
 
         const lessonRows = card.querySelectorAll('.lessons .lesson')
         lessonRows.forEach((row, lessonIndex) => {
-          if (row.querySelector('.lesson-transcript-button')) return
-          if (plan.lessons[lessonIndex] === undefined) return
+          const lessonTitle = plan.lessons[lessonIndex]
+          if (lessonTitle === undefined) return
+
+          const existingButton = row.querySelector('.lesson-transcript-button')
+          if (!isActualLesson(lessonTitle)) {
+            existingButton?.remove()
+            return
+          }
+
+          if (existingButton) return
 
           const button = document.createElement('button')
           button.type = 'button'
           button.className = 'lesson-transcript-button'
           button.textContent = '📎 Degravação'
-          button.setAttribute('aria-label', `Abrir degravação da aula ${plan.lessons[lessonIndex]}`)
+          button.setAttribute('aria-label', `Abrir degravação da aula ${lessonTitle}`)
 
           button.addEventListener('mousedown', event => {
             event.preventDefault()
