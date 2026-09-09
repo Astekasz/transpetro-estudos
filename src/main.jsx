@@ -5,6 +5,7 @@ import PasswordRecovery from './PasswordRecovery'
 import TranscriptLibrary from './TranscriptLibrary'
 import LessonTranscriptButtons from './LessonTranscriptButtons'
 import './styles.css'
+import './lessonTranscriptButtons.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
