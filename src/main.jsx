@@ -7,8 +7,10 @@ import LessonTranscriptButtons from './LessonTranscriptButtons'
 import LessonNotes from './LessonNotes'
 import AnswerBalancer from './AnswerBalancer'
 import ErrorNotebookDetails from './ErrorNotebookDetails'
+import AnswerConfirmation from './AnswerConfirmation'
 import './styles.css'
 import './simulationSelection.css'
+import './answerConfirmation.css'
 import './lessonTranscriptButtons.css'
 import './lessonNotes.css'
 
@@ -21,5 +23,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <LessonNotes />
     <AnswerBalancer />
     <ErrorNotebookDetails />
+    <AnswerConfirmation />
   </React.StrictMode>,
 )
