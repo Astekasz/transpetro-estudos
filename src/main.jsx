@@ -8,6 +8,7 @@ import LessonNotes from './LessonNotes'
 import AnswerBalancer from './AnswerBalancer'
 import ErrorNotebookDetails from './ErrorNotebookDetails'
 import './styles.css'
+import './simulationSelection.css'
 import './lessonTranscriptButtons.css'
 import './lessonNotes.css'
 
