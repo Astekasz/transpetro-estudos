@@ -312,11 +312,11 @@ function App() {
 
     const sessionThemes = new Set(contentQueue.map(item => item.theme))
     let pool = questions.filter(q => sessionThemes.has(q.theme))
-    if (pool.length < 10) {
+    if (pool.length < 20) {
       const days = new Set(contentQueue.map(item => item.day))
       pool = questions.filter(q => days.has(q.day))
     }
-    if (pool.length < 10) pool = questions.filter(q => weekStudyDays.includes(q.day))
+    if (pool.length < 20) pool = questions.filter(q => weekStudyDays.includes(q.day))
 
     const score = q => {
       let s = 0
