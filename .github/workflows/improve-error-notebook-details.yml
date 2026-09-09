@@ -1,0 +1,72 @@
+name: Improve error notebook details
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/improve-error-notebook-details.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Improve error notebook cards
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/App.jsx')
+          s = p.read_text()
+          start = s.index('function ErrorCard({ item, onToggle }) {')
+          end = s.index('\nfunction SimulationQuestion', start)
+
+          new = '''function ErrorCard({ item, onToggle }) {
+  const q = questions.find(question => question.id === item.question_id)
+  const selectedText = q?.options?.[item.selected_option]
+  const correctText = q?.options?.[item.correct_option]
+  const formatAnswer = (letter, text) => text ? `${letter} — ${text}` : (letter || '—')
+
+  return <div className="error-card" style={{opacity:item.reviewed ? .55 : 1}}>
+    <div className="q-meta"><span>{item.source}</span><span>{item.theme}</span></div>
+    <div style={{marginTop:12}}>
+      <div className="eyebrow">PERGUNTA</div>
+      <p style={{fontSize:'1.05rem',lineHeight:1.55}}><strong>{item.statement}</strong></p>
+    </div>
+    <div style={{display:'grid',gap:10,margin:'16px 0'}}>
+      <div style={{padding:12,border:'1px solid #e3e8ec',borderRadius:10}}>
+        <div className="eyebrow">VOCÊ RESPONDEU</div>
+        <strong>{formatAnswer(item.selected_option, selectedText)}</strong>
+      </div>
+      <div style={{padding:12,border:'1px solid #e3e8ec',borderRadius:10}}>
+        <div className="eyebrow">RESPOSTA CORRETA</div>
+        <strong>{formatAnswer(item.correct_option, correctText)}</strong>
+      </div>
+    </div>
+    <div style={{padding:12,border:'1px solid #e3e8ec',borderRadius:10,marginBottom:14}}>
+      <div className="eyebrow">EXPLICAÇÃO</div>
+      <p style={{margin:'6px 0 0',lineHeight:1.55}}>{item.explanation || 'Sem explicação cadastrada para esta questão.'}</p>
+    </div>
+    <p><b>Erros nessa questão:</b> {item.error_count}</p>
+    <button className={item.reviewed ? '' : 'primary'} onClick={onToggle}>{item.reviewed ? 'Marcar como pendente' : 'Marcar como revisado'}</button>
+  </div>
+}
+'''
+
+          s = s[:start] + new + s[end:]
+          p.write_text(s)
+          PY
+
+      - name: Commit improvement
+        shell: bash
+        run: |
+          git config user.name "Astekasz"
+          git config user.email "armando_rocha_@hotmail.com"
+          git add src/App.jsx
+          git rm .github/workflows/improve-error-notebook-details.yml
+          git commit -m "feat: detalha respostas no caderno de erros"
+          git push
