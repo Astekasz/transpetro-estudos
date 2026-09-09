@@ -106,7 +106,6 @@ function App() {
       supabase.from('error_notebook').select('*').eq('user_id', userId).order('last_error_at', { ascending: false }),
       supabase.from('simulation_results').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(30)
     ])
-    adaptiveQuestionsRef.current = { key: null, ids: [] }
     setProgress(Object.fromEntries((p || []).map(row => [row.item_key, row.status])))
     setProgressMeta(Object.fromEntries((p || []).map(row => [row.item_key, row.updated_at])))
     setAnswers(Object.fromEntries((a || []).map(row => [row.question_id, { selected: row.selected_option, correct: row.is_correct }])))
@@ -329,14 +328,32 @@ function App() {
       return s + Math.random()
     }
     const questionContextKey = `${todayName}|${contentQueue.map(item => item.key).join('|')}`
+    const adaptiveStorageKey = `tp_adaptive_questions:${session?.user?.id || 'local'}:${questionContextKey}`
     let todayQuestions = []
+
     if (adaptiveQuestionsRef.current.key === questionContextKey && adaptiveQuestionsRef.current.ids.length) {
       todayQuestions = adaptiveQuestionsRef.current.ids.map(id => pool.find(q => q.id === id)).filter(Boolean)
     }
+
+    if (!todayQuestions.length) {
+      try {
+        const storedIds = JSON.parse(sessionStorage.getItem(adaptiveStorageKey) || '[]')
+        if (Array.isArray(storedIds) && storedIds.length) {
+          todayQuestions = storedIds.map(id => pool.find(q => q.id === id)).filter(Boolean)
+        }
+      } catch {
+        sessionStorage.removeItem(adaptiveStorageKey)
+      }
+    }
+
     if (!todayQuestions.length) {
       todayQuestions = [...pool].sort((a,b) => score(b) - score(a)).slice(0,20)
-      adaptiveQuestionsRef.current = { key: questionContextKey, ids: todayQuestions.map(q => q.id) }
+      try {
+        sessionStorage.setItem(adaptiveStorageKey, JSON.stringify(todayQuestions.map(q => q.id)))
+      } catch {}
     }
+
+    adaptiveQuestionsRef.current = { key: questionContextKey, ids: todayQuestions.map(q => q.id) }
     const reviewItems = activeErrors.slice().sort((a,b) => (b.error_count || 1) - (a.error_count || 1)).slice(0,5)
 
     let nextAction = 'Sessão concluída'
