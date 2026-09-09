@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cloudEnabled, supabase } from './supabase'
 import { studyPlan, editalItems } from './data/studyPlan'
 import { questions } from './data/questions'
@@ -76,6 +76,7 @@ function App() {
   const [simFinished, setSimFinished] = useState(false)
   const [simResult, setSimResult] = useState(null)
   const [simMessage, setSimMessage] = useState('')
+  const adaptiveQuestionsRef = useRef({ key: null, ids: [] })
 
   const todayName = weekDayMap[new Date().getDay()]
 
@@ -105,6 +106,7 @@ function App() {
       supabase.from('error_notebook').select('*').eq('user_id', userId).order('last_error_at', { ascending: false }),
       supabase.from('simulation_results').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(30)
     ])
+    adaptiveQuestionsRef.current = { key: null, ids: [] }
     setProgress(Object.fromEntries((p || []).map(row => [row.item_key, row.status])))
     setProgressMeta(Object.fromEntries((p || []).map(row => [row.item_key, row.updated_at])))
     setAnswers(Object.fromEntries((a || []).map(row => [row.question_id, { selected: row.selected_option, correct: row.is_correct }])))
@@ -326,7 +328,15 @@ function App() {
       if (err) s += 3 + (err.error_count || 1)
       return s + Math.random()
     }
-    const todayQuestions = [...pool].sort((a,b) => score(b) - score(a)).slice(0,20)
+    const questionContextKey = `${todayName}|${contentQueue.map(item => item.key).join('|')}`
+    let todayQuestions = []
+    if (adaptiveQuestionsRef.current.key === questionContextKey && adaptiveQuestionsRef.current.ids.length) {
+      todayQuestions = adaptiveQuestionsRef.current.ids.map(id => pool.find(q => q.id === id)).filter(Boolean)
+    }
+    if (!todayQuestions.length) {
+      todayQuestions = [...pool].sort((a,b) => score(b) - score(a)).slice(0,20)
+      adaptiveQuestionsRef.current = { key: questionContextKey, ids: todayQuestions.map(q => q.id) }
+    }
     const reviewItems = activeErrors.slice().sort((a,b) => (b.error_count || 1) - (a.error_count || 1)).slice(0,5)
 
     let nextAction = 'Sessão concluída'
