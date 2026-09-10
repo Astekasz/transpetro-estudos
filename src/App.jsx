@@ -11,6 +11,73 @@ const QUESTIONS_MINUTES = 45
 const REVIEW_MINUTES = 30
 const ESTIMATED_LESSON_MINUTES = 35
 
+const conceptExplanations = {
+  'evaporacao': 'Evaporação é a passagem do estado líquido para o gasoso, de forma gradual e pela superfície do líquido.',
+  'vaporizacao': 'Vaporização é a passagem do estado líquido para o gasoso. Pode ocorrer por evaporação, ebulição ou calefação.',
+  'condensacao': 'Condensação é a passagem do estado gasoso para o líquido. Exemplo: vapor de água formando gotículas em um copo gelado.',
+  'liquefacao': 'Liquefação é a passagem do estado gasoso para o líquido, geralmente associada a resfriamento e/ou aumento de pressão.',
+  'fusao': 'Fusão é a passagem do estado sólido para o líquido. Exemplo: gelo derretendo.',
+  'solidificacao': 'Solidificação é a passagem do estado líquido para o sólido. Exemplo: água formando gelo.',
+  'sublimacao': 'Sublimação é a passagem direta entre sólido e gasoso, sem passar pelo estado líquido.',
+  'ecossistema': 'Ecossistema é o conjunto dos seres vivos e dos fatores abióticos de uma área, juntamente com as interações entre eles.',
+  'nicho': 'Nicho ecológico é o papel e o modo de vida de uma espécie no ecossistema: recursos usados, alimentação, horários de atividade e interações.',
+  'habitat': 'Habitat é o local onde uma espécie vive, isto é, seu endereço ecológico.',
+  'comunidade': 'Comunidade é o conjunto de populações de espécies diferentes que vivem e interagem em uma mesma área.',
+  'populacao': 'População é o conjunto de indivíduos da mesma espécie que vivem em uma determinada área e período.',
+  'sucessao primaria': 'Sucessão primária começa em uma área sem comunidade anterior estabelecida e, em geral, sem solo formado, como rocha nua.',
+  'primaria': 'Sucessão primária começa praticamente do zero, normalmente em substrato sem solo previamente formado.',
+  'sucessao secundaria': 'Sucessão secundária ocorre após uma perturbação em uma área já ocupada, quando o solo e parte da estrutura anterior permanecem.',
+  'secundaria': 'Sucessão secundária é a recolonização de uma área previamente ocupada, com solo ainda presente após a perturbação.',
+  'ubiquidade': 'Ubiquidade ambiental significa que a dimensão ambiental está presente de forma ampla e deve ser considerada nas diversas atividades humanas.',
+  'transversalidade': 'Transversalidade significa integrar a questão ambiental entre diferentes áreas, disciplinas, setores e políticas públicas.',
+  'precaucao': 'Precaução orienta a proteção diante de risco grave ou relevante quando ainda existe incerteza científica sobre o dano.',
+  'prevencao': 'Prevenção atua quando o risco ou dano já é conhecido cientificamente e são adotadas medidas para evitá-lo.',
+  'produtores': 'Produtores são organismos autotróficos que fabricam matéria orgânica a partir de substâncias inorgânicas, como plantas e algas fotossintetizantes.',
+  'produtor': 'Produtor é o organismo que produz sua própria matéria orgânica e ocupa o primeiro nível trófico.',
+  'consumidores primarios': 'Consumidores primários alimentam-se diretamente dos produtores; em muitas cadeias, são herbívoros.',
+  'consumidor primario': 'Consumidor primário alimenta-se diretamente de produtores.',
+  'consumidores secundarios': 'Consumidores secundários alimentam-se de consumidores primários.',
+  'consumidor secundario': 'Consumidor secundário alimenta-se de consumidores primários.',
+  'decompositores': 'Decompositores degradam matéria orgânica morta e devolvem nutrientes ao ambiente, como fungos e muitas bactérias.',
+  'poluidor-pagador': 'O princípio do poluidor-pagador determina que quem causa poluição deve suportar os custos de prevenção, controle e reparação do dano.',
+  'usuario-pagador': 'O princípio do usuário-pagador atribui custo ao uso de recursos naturais, mesmo sem ocorrência de poluição.',
+  'protetor-recebedor': 'O princípio do protetor-recebedor recompensa ou incentiva quem adota condutas de proteção ambiental.',
+  'reparacao integral': 'Reparação integral busca restaurar o dano ambiental da forma mais completa possível, podendo combinar recuperação, cessação da lesão e indenização.',
+  'capacidade de suporte': 'Capacidade de suporte é o tamanho máximo de uma população que o ambiente consegue manter de forma relativamente estável com os recursos disponíveis.',
+  'mutualismo': 'Mutualismo é uma relação ecológica em que ambas as espécies envolvidas obtêm benefício.',
+  'competicao': 'Competição ocorre quando organismos disputam recursos limitados, como alimento, espaço, luz ou parceiros.',
+  'predacao': 'Predação ocorre quando um organismo captura e mata outro para se alimentar.',
+  'parasitismo': 'Parasitismo é uma relação em que o parasita se beneficia e o hospedeiro é prejudicado, geralmente sem morte imediata do hospedeiro.',
+  'comensalismo': 'Comensalismo é uma relação em que uma espécie se beneficia e a outra não é significativamente beneficiada nem prejudicada.',
+  'fitoplancton': 'Fitoplâncton é formado principalmente por organismos microscópicos fotossintetizantes e constitui importante grupo de produtores em ambientes aquáticos.',
+  'zooplancton': 'Zooplâncton é formado por organismos heterotróficos planctônicos, muitos dos quais se alimentam do fitoplâncton.'
+}
+
+function normalizeConcept(text = '') {
+  return String(text)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[.,;:!?()]/g, '')
+    .replace(/\s+/g, ' ')
+}
+
+function explainChosenWrongAlternative(item) {
+  const q = questions.find(question => question.id === item.question_id)
+  const selectedText = q?.options?.[item.selected_option] || item.selected_option
+  const specific = q?.optionExplanations?.[item.selected_option]
+  if (specific) return specific
+
+  const normalized = normalizeConcept(selectedText)
+  if (conceptExplanations[normalized]) return conceptExplanations[normalized]
+
+  const partial = Object.entries(conceptExplanations).find(([key]) => normalized.includes(key) || key.includes(normalized))
+  if (partial) return partial[1]
+
+  return `A alternativa “${selectedText}” pertence ao tema da questão, mas não corresponde ao conceito ou processo descrito no enunciado. Compare a definição dessa alternativa com a explicação da resposta correta acima.`
+}
+
 function shuffle(array) {
   const copy = [...array]
   for (let i = copy.length - 1; i > 0; i--) {
@@ -327,6 +394,7 @@ function App() {
       if (err) s += 3 + (err.error_count || 1)
       return s + Math.random()
     }
+
     const questionContextKey = `${todayName}|${contentQueue.map(item => item.key).join('|')}`
     const adaptiveStorageKey = `tp_adaptive_questions:${session?.user?.id || 'local'}:${questionContextKey}`
     let todayQuestions = []
@@ -338,9 +406,7 @@ function App() {
     if (!todayQuestions.length) {
       try {
         const storedIds = JSON.parse(sessionStorage.getItem(adaptiveStorageKey) || '[]')
-        if (Array.isArray(storedIds) && storedIds.length) {
-          todayQuestions = storedIds.map(id => pool.find(q => q.id === id)).filter(Boolean)
-        }
+        if (Array.isArray(storedIds) && storedIds.length) todayQuestions = storedIds.map(id => pool.find(q => q.id === id)).filter(Boolean)
       } catch {
         sessionStorage.removeItem(adaptiveStorageKey)
       }
@@ -348,9 +414,7 @@ function App() {
 
     if (!todayQuestions.length) {
       todayQuestions = [...pool].sort((a,b) => score(b) - score(a)).slice(0,20)
-      try {
-        sessionStorage.setItem(adaptiveStorageKey, JSON.stringify(todayQuestions.map(q => q.id)))
-      } catch {}
+      try { sessionStorage.setItem(adaptiveStorageKey, JSON.stringify(todayQuestions.map(q => q.id))) } catch {}
     }
 
     adaptiveQuestionsRef.current = { key: questionContextKey, ids: todayQuestions.map(q => q.id) }
@@ -364,7 +428,7 @@ function App() {
     else if (reviewItems.length) nextAction = 'Revisar o Caderno de erros'
 
     return { overdue, selectedOverdue, selectedToday, contentQueue, todayQuestions, reviewItems, nextAction }
-  }, [progress, answers, activeErrors, weakThemes, reviewSchedule.due, todayName])
+  }, [progress, answers, activeErrors, weakThemes, reviewSchedule.due, todayName, session?.user?.id])
 
   const estimatedDoneMinutes = Math.min(180,
     adaptiveSession.contentQueue.filter(item => progress[item.key] === 'Concluído').length * ESTIMATED_LESSON_MINUTES +
@@ -517,7 +581,6 @@ function App() {
         {tab === 'hoje' && <section className="panel">
           <div className="section-head"><div><div className="eyebrow">ESTUDAR HOJE</div><h2>Sessão adaptativa de 3 horas</h2><p className="muted">Pendências antigas continuam tendo prioridade absoluta.</p></div><span className="counter">{Math.round(estimatedDoneMinutes)}/180 min</span></div>
           <p><strong>Próxima ação:</strong> {adaptiveSession.nextAction}</p>
-
           {adaptiveSession.overdue.length > 0 && <div className="notice" style={{marginTop:20}}><strong>Recuperação prioritária</strong><p>{adaptiveSession.overdue.length} pendência(s). As mais antigas entram primeiro.</p></div>}
 
           <StudySection number="1" title={`Conteúdo • ${CONTENT_MINUTES} min`} subtitle="Atrasados primeiro; questões atrasadas podem ser feitas aqui mesmo.">
@@ -548,7 +611,7 @@ function App() {
             <div className="question-list">{adaptiveSession.todayQuestions.map((q,i) => <QuestionCard key={q.id} q={q} n={i+1} state={answers[q.id]} onAnswer={(question, selected) => answerQuestion(question, selected, 'Estudar hoje')} />)}</div>
           </StudySection>
 
-          <StudySection number="4" title={`Caderno de erros • ${REVIEW_MINUTES} min`} subtitle="Os erros mais recorrentes aparecem primeiro.">
+          <StudySection number="4" title={`Caderno de erros • ${REVIEW_MINUTES} min`} subtitle="Além da correta, agora também explica a alternativa que você marcou.">
             {!adaptiveSession.reviewItems.length ? <p className="empty">Nenhum erro pendente.</p> : adaptiveSession.reviewItems.map(item => <ErrorCard key={item.id} item={item} onToggle={() => markErrorReviewed(item.id, true)} />)}
           </StudySection>
         </section>}
@@ -590,7 +653,7 @@ function App() {
 
         {tab === 'edital' && <section className="panel"><div className="section-head"><div><div className="eyebrow">PROGRESSO AUTOMÁTICO</div><h2>Edital verticalizado</h2><p className="muted">Ao concluir aulas, os códigos vinculados ao bloco são atualizados automaticamente. Você ainda pode ajustar manualmente.</p></div></div><div className="edital-list">{editalItems.map(item => <div className="edital-row" key={item.code}><div><strong>{item.code}</strong><div>{item.title}</div></div><select value={progress[`edital:${item.code}`] || 'Não iniciado'} onChange={e => saveProgressKey(`edital:${item.code}`, e.target.value)}><option>Não iniciado</option><option>Em andamento</option><option>Concluído</option></select></div>)}</div></section>}
 
-        {tab === 'erros' && <section className="panel"><div className="section-head"><div><div className="eyebrow">REVISÃO</div><h2>Caderno de erros</h2><p className="muted">Erros de questões normais, Estudar hoje e simulados.</p></div><span className="counter">{activeErrors.length} para revisar</span></div>{!errorNotebook.length ? <p className="empty">Nenhum erro registrado.</p> : errorNotebook.map(item => <ErrorCard key={item.id} item={item} onToggle={() => markErrorReviewed(item.id, !item.reviewed)} />)}</section>}
+        {tab === 'erros' && <section className="panel"><div className="section-head"><div><div className="eyebrow">REVISÃO</div><h2>Caderno de erros</h2><p className="muted">Agora explica a resposta correta e também o conceito da alternativa que você marcou.</p></div><span className="counter">{activeErrors.length} para revisar</span></div>{!errorNotebook.length ? <p className="empty">Nenhum erro registrado.</p> : errorNotebook.map(item => <ErrorCard key={item.id} item={item} onToggle={() => markErrorReviewed(item.id, !item.reviewed)} />)}</section>}
 
         {tab === 'conta' && <section className="panel account-panel">
           <div><div className="eyebrow">SINCRONIZAÇÃO E BACKUP</div><h2>Conta</h2></div>
@@ -622,7 +685,23 @@ function QuestionCard({ q, n, state, onAnswer }) {
 }
 
 function ErrorCard({ item, onToggle }) {
-  return <div className="error-card" style={{opacity:item.reviewed ? .55 : 1}}><div className="q-meta"><span>{item.source}</span><span>{item.theme}</span></div><p><strong>{item.statement}</strong></p><p><b>Sua resposta:</b> {item.selected_option} • <b>Correta:</b> {item.correct_option}</p><p className="muted">{item.explanation}</p><p><b>Erros nessa questão:</b> {item.error_count}</p><button className={item.reviewed ? '' : 'primary'} onClick={onToggle}>{item.reviewed ? 'Marcar como pendente' : 'Marcar como revisado'}</button></div>
+  const q = questions.find(question => question.id === item.question_id)
+  const selectedText = q?.options?.[item.selected_option] || item.selected_option
+  const correctText = q?.options?.[item.correct_option] || item.correct_option
+  const wrongExplanation = explainChosenWrongAlternative(item)
+
+  return <div className="error-card" style={{opacity:item.reviewed ? .55 : 1}}>
+    <div className="q-meta"><span>{item.source}</span><span>{item.theme}</span></div>
+    <p><strong>{item.statement}</strong></p>
+    <p><b>Você respondeu:</b> {selectedText}</p>
+    <p><b>Resposta correta:</b> {correctText}</p>
+    <div style={{marginTop:14,padding:'12px 14px',border:'1px solid #dfe6ee',borderRadius:10}}>
+      <p style={{marginTop:0}}><b>Por que a correta está certa:</b> {item.explanation}</p>
+      <p style={{marginBottom:0}}><b>O que significa a alternativa que você marcou:</b> {wrongExplanation}</p>
+    </div>
+    <p><b>Erros nessa questão:</b> {item.error_count}</p>
+    <button className={item.reviewed ? '' : 'primary'} onClick={onToggle}>{item.reviewed ? 'Marcar como pendente' : 'Marcar como revisado'}</button>
+  </div>
 }
 
 function SimulationQuestion({ q, n, selected, finished, onSelect }) {
