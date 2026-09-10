@@ -17,6 +17,10 @@ function isActualLesson(title = '') {
   )
 }
 
+function noteKey(planId, lessonIndex) {
+  return `${planId}:${lessonIndex}`
+}
+
 export default function LessonNotes() {
   const [open, setOpen] = useState(false)
   const [session, setSession] = useState(null)
@@ -29,6 +33,7 @@ export default function LessonNotes() {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [annotatedKeys, setAnnotatedKeys] = useState(() => new Set())
 
   const selectedPlan = useMemo(() => studyPlan.find(p => p.id === planId) || studyPlan[0], [planId])
   const selectedLesson = selectedPlan?.lessons?.[lessonIndex] || ''
@@ -42,6 +47,34 @@ export default function LessonNotes() {
   }, [])
 
   useEffect(() => {
+    if (!session?.user) {
+      setAnnotatedKeys(new Set())
+      return
+    }
+
+    let cancelled = false
+
+    async function loadAnnotatedLessons() {
+      const { data, error } = await supabase
+        .from('lesson_notes')
+        .select('plan_id, lesson_index, notes')
+        .eq('user_id', session.user.id)
+
+      if (cancelled || error) return
+
+      const next = new Set(
+        (data || [])
+          .filter(row => String(row.notes || '').trim().length > 0)
+          .map(row => noteKey(row.plan_id, row.lesson_index))
+      )
+      setAnnotatedKeys(next)
+    }
+
+    loadAnnotatedLessons()
+    return () => { cancelled = true }
+  }, [session?.user?.id])
+
+  useEffect(() => {
     function openNotes(plan, index) {
       setPlanId(plan.id)
       setLessonIndex(index)
@@ -51,6 +84,19 @@ export default function LessonNotes() {
       setSavedAt(null)
       setMessage('')
       setOpen(true)
+    }
+
+    function updateButtonState(button, plan, index, lessonTitle) {
+      const hasNotes = annotatedKeys.has(noteKey(plan.id, index))
+      button.classList.toggle('has-notes', hasNotes)
+      button.textContent = hasNotes ? '✓ Anotado' : '📝 Anotações'
+      button.setAttribute(
+        'aria-label',
+        hasNotes
+          ? `Abrir anotações salvas da aula ${lessonTitle}`
+          : `Abrir anotações da aula ${lessonTitle}`
+      )
+      button.title = hasNotes ? 'Esta aula possui anotações salvas' : 'Adicionar anotações nesta aula'
     }
 
     function addButtons() {
@@ -65,31 +111,32 @@ export default function LessonNotes() {
           const lessonTitle = plan.lessons[index]
           if (lessonTitle === undefined) return
 
-          const existingButton = row.querySelector('.lesson-notes-button')
+          let button = row.querySelector('.lesson-notes-button')
           if (!isActualLesson(lessonTitle)) {
-            existingButton?.remove()
+            button?.remove()
             return
           }
-          if (existingButton) return
 
-          const button = document.createElement('button')
-          button.type = 'button'
-          button.className = 'lesson-notes-button'
-          button.textContent = '📝 Anotações'
-          button.setAttribute('aria-label', `Abrir anotações da aula ${lessonTitle}`)
+          if (!button) {
+            button = document.createElement('button')
+            button.type = 'button'
+            button.className = 'lesson-notes-button'
 
-          button.addEventListener('mousedown', event => {
-            event.preventDefault()
-            event.stopPropagation()
-          })
+            button.addEventListener('mousedown', event => {
+              event.preventDefault()
+              event.stopPropagation()
+            })
 
-          button.addEventListener('click', event => {
-            event.preventDefault()
-            event.stopPropagation()
-            openNotes(plan, index)
-          })
+            button.addEventListener('click', event => {
+              event.preventDefault()
+              event.stopPropagation()
+              openNotes(plan, index)
+            })
 
-          row.appendChild(button)
+            row.appendChild(button)
+          }
+
+          updateButtonState(button, plan, index, lessonTitle)
         })
       })
     }
@@ -101,7 +148,7 @@ export default function LessonNotes() {
     const observer = new MutationObserver(addButtons)
     observer.observe(root, { childList: true, subtree: true })
     return () => observer.disconnect()
-  }, [])
+  }, [annotatedKeys])
 
   useEffect(() => {
     if (!open || !session?.user || !selectedPlan) return
@@ -162,13 +209,31 @@ export default function LessonNotes() {
     setNoteId(data.id)
     setSavedNotes(data.notes || '')
     setSavedAt(data.updated_at)
+
+    const key = noteKey(selectedPlan.id, lessonIndex)
+    setAnnotatedKeys(prev => {
+      const next = new Set(prev)
+      if (String(data.notes || '').trim()) next.add(key)
+      else next.delete(key)
+      return next
+    })
+
     setMessage('Anotações salvas na nuvem.')
   }
 
   async function deleteNote() {
+    const key = selectedPlan ? noteKey(selectedPlan.id, lessonIndex) : null
+
     if (!noteId || !session?.user) {
       setNotes('')
       setSavedNotes('')
+      if (key) {
+        setAnnotatedKeys(prev => {
+          const next = new Set(prev)
+          next.delete(key)
+          return next
+        })
+      }
       setMessage('Não havia anotação salva para excluir.')
       return
     }
@@ -187,6 +252,13 @@ export default function LessonNotes() {
     setNotes('')
     setSavedNotes('')
     setSavedAt(null)
+    if (key) {
+      setAnnotatedKeys(prev => {
+        const next = new Set(prev)
+        next.delete(key)
+        return next
+      })
+    }
     setMessage('Anotações excluídas.')
   }
 
