@@ -27,6 +27,20 @@ const existingQuestionIds = new Set(questions.map(question => question.id))
   }
 })
 
+// As questões das degravações e as inspiradas na última prova recebem destaque
+// nos blocos que respeitam a ordem do banco (Questões e blocos do Estudar hoje).
+// Elas são intercaladas para manter uma mistura equilibrada das duas fontes.
+const transcriptBased = questions.filter(question => question.sourceType?.includes('degravação'))
+const transpetroBased = questions.filter(question => question.sourceType?.includes('Transpetro 2023'))
+const regularQuestions = questions.filter(question => !question.sourceType?.includes('degravação') && !question.sourceType?.includes('Transpetro 2023'))
+const prioritizedQuestions = []
+const priorityLength = Math.max(transcriptBased.length, transpetroBased.length)
+for (let index = 0; index < priorityLength; index += 1) {
+  if (transcriptBased[index]) prioritizedQuestions.push(transcriptBased[index])
+  if (transpetroBased[index]) prioritizedQuestions.push(transpetroBased[index])
+}
+questions.splice(0, questions.length, ...prioritizedQuestions, ...regularQuestions)
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
