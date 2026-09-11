@@ -9,6 +9,7 @@ import AnswerBalancer from './AnswerBalancer'
 import ErrorNotebookDetails from './ErrorNotebookDetails'
 import AnswerConfirmation from './AnswerConfirmation'
 import AnswerFeedbackNormalizer from './AnswerFeedbackNormalizer'
+import ExtraStudyOptions from './ExtraStudyOptions'
 import { questions } from './data/questions'
 import { transcriptQuestions } from './data/transcriptQuestions'
 import './styles.css'
@@ -33,5 +34,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ErrorNotebookDetails />
     <AnswerConfirmation />
     <AnswerFeedbackNormalizer />
+    <ExtraStudyOptions />
   </React.StrictMode>,
 )
