@@ -88,15 +88,19 @@ export default function LessonNotes() {
 
     function updateButtonState(button, plan, index, lessonTitle) {
       const hasNotes = annotatedKeys.has(noteKey(plan.id, index))
+      const nextText = hasNotes ? '✓ Anotado' : '📝 Anotações'
+      const nextAriaLabel = hasNotes
+        ? `Abrir anotações salvas da aula ${lessonTitle}`
+        : `Abrir anotações da aula ${lessonTitle}`
+      const nextTitle = hasNotes ? 'Esta aula possui anotações salvas' : 'Adicionar anotações nesta aula'
+
+      // Importante: o MutationObserver abaixo observa alterações de filhos no #root.
+      // Reatribuir textContent em toda varredura criava uma nova mutação mesmo quando
+      // o texto já era igual, fazendo a aba Aulas entrar em um ciclo contínuo.
       button.classList.toggle('has-notes', hasNotes)
-      button.textContent = hasNotes ? '✓ Anotado' : '📝 Anotações'
-      button.setAttribute(
-        'aria-label',
-        hasNotes
-          ? `Abrir anotações salvas da aula ${lessonTitle}`
-          : `Abrir anotações da aula ${lessonTitle}`
-      )
-      button.title = hasNotes ? 'Esta aula possui anotações salvas' : 'Adicionar anotações nesta aula'
+      if (button.textContent !== nextText) button.textContent = nextText
+      if (button.getAttribute('aria-label') !== nextAriaLabel) button.setAttribute('aria-label', nextAriaLabel)
+      if (button.title !== nextTitle) button.title = nextTitle
     }
 
     function addButtons() {
@@ -144,8 +148,18 @@ export default function LessonNotes() {
     const root = document.getElementById('root')
     if (!root) return
 
-    addButtons()
-    const observer = new MutationObserver(addButtons)
+    let scheduled = false
+    function scheduleAddButtons() {
+      if (scheduled) return
+      scheduled = true
+      requestAnimationFrame(() => {
+        scheduled = false
+        addButtons()
+      })
+    }
+
+    scheduleAddButtons()
+    const observer = new MutationObserver(scheduleAddButtons)
     observer.observe(root, { childList: true, subtree: true })
     return () => observer.disconnect()
   }, [annotatedKeys])
