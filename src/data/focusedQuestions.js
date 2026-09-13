@@ -20,6 +20,9 @@ const T = (id, day, theme, lesson, statement, alternatives, correct, explanation
 const P = (id, day, theme, topic, statement, alternatives, correct, explanation) =>
   FQ(id, day, theme, 'Inédita • inspirada na Transpetro 2023', `Padrão CESGRANRIO/Transpetro 2023 • ${topic}`, statement, alternatives, correct, explanation)
 
+const A = (id, day, theme, topic, statement, alternatives, correct, explanation) =>
+  FQ(id, day, theme, 'Inédita • reforço adaptativo', `Desempenho recente • estilo Cesgranrio • ${topic}`, statement, alternatives, correct, explanation)
+
 export const focusedQuestions = [
   // =========================================================
   // MAIS QUESTÕES DIRETAMENTE DAS DEGRAVAÇÕES
@@ -308,5 +311,150 @@ export const focusedQuestions = [
     ['aumento automático da conectividade','redução do fluxo gênico e intensificação de efeitos de borda','eliminação do risco de extinção local','redução da proporção de borda em todos os fragmentos','crescimento ilimitado de todas as populações'],
     'B',
     'A fragmentação reduz conectividade e pode aumentar isolamento, efeitos de borda e vulnerabilidade populacional.'
+  ),
+
+  // =========================================================
+  // REFORÇO ADAPTATIVO — DESEMPENHO RECENTE (13/09/2026)
+  // A–E balanceadas: 4 respostas corretas de cada letra.
+  // =========================================================
+
+  A('q211','Segunda','Revisão + Ecologia','usuário-pagador × poluidor-pagador',
+    'Uma indústria capta água de um rio mediante outorga e, além disso, lança efluentes tratados dentro dos limites autorizados. A cobrança pela captação, independentemente de haver poluição, concretiza principalmente o princípio do',
+    ['usuário-pagador','poluidor-pagador','protetor-recebedor','reparação integral','retrocesso ambiental'],
+    'A',
+    'O usuário-pagador atribui custo ao uso de um recurso natural mesmo sem dano ambiental. O poluidor-pagador se relaciona à internalização dos custos da poluição e de sua prevenção, controle e reparação.'
+  ),
+
+  A('q212','Segunda','Revisão + Ecologia','competência concorrente',
+    'Uma lei estadual reduz a proteção de determinada área ambiental abaixo do padrão mínimo fixado em norma geral federal. No modelo constitucional de competência concorrente, essa lei estadual é problemática porque',
+    ['a União não pode editar normas gerais ambientais','a suplementação estadual não pode contrariar a norma geral federal','os Estados só podem legislar após autorização municipal','a competência ambiental legislativa é exclusiva do Município','toda norma ambiental estadual depende de lei complementar federal específica'],
+    'B',
+    'Na competência concorrente, a União estabelece normas gerais e os Estados podem suplementá-las. A suplementação não autoriza contrariar o padrão geral federal.'
+  ),
+
+  A('q213','Segunda','Revisão + Ecologia','proporcionalidade ambiental',
+    'Ao analisar uma política pública ambiental, o tribunal conclui que o Estado adotou medidas tão insuficientes que deixou um direito fundamental praticamente sem proteção. Essa conclusão se relaciona à proporcionalidade em sua vertente de',
+    ['proibição de excesso apenas','reserva do possível','proibição de proteção insuficiente','autotutela administrativa','subsidiariedade federativa'],
+    'C',
+    'A proporcionalidade possui dupla dimensão: evita excesso estatal e também proteção insuficiente. Em matéria ambiental, a tutela deficiente pode violar o dever constitucional de proteção.'
+  ),
+
+  A('q214','Segunda','Revisão + Ecologia','democracia ambiental',
+    'Em processo de licenciamento, moradores recebem dados sobre os impactos previstos, participam de audiência pública e podem provocar o Judiciário. Em conjunto, essas garantias representam mais diretamente o',
+    ['princípio da correção na fonte','princípio do usuário-pagador','princípio da intervenção mínima','tripé da democracia ambiental','princípio da responsabilidade comum diferenciada'],
+    'D',
+    'Informação, participação e acesso à justiça formam o tripé da democracia ambiental, permitindo controle social e atuação informada da coletividade.'
+  ),
+
+  A('q215','Segunda','Revisão + Ecologia','tragédia dos bens comuns',
+    'Em uma pastagem comunitária sem regras efetivas de uso, cada criador aumenta seu próprio rebanho porque recebe individualmente os benefícios, enquanto o custo da degradação é dividido entre todos. O mecanismo descrito corresponde à',
+    ['solidariedade intergeracional','função socioambiental','responsabilidade objetiva','ecoeficiência','tragédia dos bens comuns'],
+    'E',
+    'Na tragédia dos bens comuns, incentivos individuais favorecem a superexploração de um recurso coletivo quando faltam regras, fiscalização e mecanismos de responsabilização.'
+  ),
+
+  A('q216','Segunda','Revisão + Ecologia','competência municipal',
+    'Uma norma municipal disciplina a arborização e a proteção de pequenas áreas verdes urbanas por refletirem peculiaridades essencialmente locais, respeitando as normas federal e estadual. Essa atuação encontra fundamento na competência municipal para',
+    ['legislar sobre interesse local e suplementar a legislação federal e estadual no que couber','editar normas gerais de competência concorrente em substituição à União','legislar privativamente sobre águas e energia','afastar qualquer padrão estadual de proteção','exercer competência legislativa exclusiva sobre florestas'],
+    'A',
+    'Os Municípios não integram o rol do art. 24, mas podem legislar sobre interesse local e suplementar normas federal e estadual conforme o art. 30.'
+  ),
+
+  A('q217','Segunda','Revisão + Ecologia','prevenção',
+    'Uma atividade apresenta risco ambiental conhecido e bem documentado, mas seu operador sustenta que somente deveria agir após a ocorrência do dano. A resposta juridicamente adequada é que medidas antecipatórias são exigíveis com fundamento predominante na',
+    ['precaução, pois todo risco conhecido é cientificamente incerto','prevenção, pois o risco já é conhecido','reparação integral, que substitui medidas preventivas','ubiquidade, que só atua depois do dano','participação, que elimina a necessidade de prevenção'],
+    'B',
+    'A prevenção atua diante de riscos cientificamente conhecidos. A precaução é mais própria dos cenários de incerteza científica relevante.'
+  ),
+
+  A('q218','Segunda','Revisão + Ecologia','art. 225 da Constituição',
+    'A Constituição impõe ao Poder Público e à coletividade o dever de defender e preservar o meio ambiente. Dessa formulação decorre que a proteção ambiental é',
+    ['dever exclusivo dos órgãos de fiscalização','faculdade estatal condicionada à conveniência administrativa','um direito-dever de titularidade difusa, com responsabilidade compartilhada de proteção','direito individual disponível, renunciável por seus titulares','atribuição exclusiva do Ministério Público'],
+    'C',
+    'O art. 225 combina direito difuso ao meio ambiente equilibrado com dever de proteção atribuído ao Poder Público e à coletividade.'
+  ),
+
+  A('q219','Terça','Ecossistemas e biodiversidade','riqueza × equabilidade',
+    'Duas comunidades possuem dez espécies cada. Na primeira, uma espécie corresponde a 90% dos indivíduos; na segunda, as abundâncias são semelhantes entre as espécies. A segunda comunidade apresenta maior',
+    ['riqueza de espécies','produtividade primária necessariamente','capacidade de suporte obrigatoriamente','equabilidade e, portanto, maior diversidade segundo índices que consideram abundância relativa','taxa de especiação por definição'],
+    'D',
+    'As duas comunidades têm a mesma riqueza, mas a segunda tem maior equabilidade. Índices de diversidade que incorporam abundância relativa tendem a ser maiores quando a distribuição é mais uniforme.'
+  ),
+
+  A('q220','Terça','Ecossistemas e biodiversidade','sucessão ecológica',
+    'Após uma erupção vulcânica, uma superfície de lava recém-solidificada começa a ser colonizada por líquens e outros organismos pioneiros. Diferentemente de uma área florestal que rebrota após incêndio mantendo o solo, esse processo é classificado como sucessão',
+    ['secundária, porque sempre há organismos pioneiros','climácica, porque começa sem competição','regressiva, porque reduz a biomassa','artificial, porque depende de dispersão','primária, porque se inicia em substrato sem solo previamente desenvolvido'],
+    'E',
+    'Sucessão primária começa em substrato inicialmente sem solo e sem comunidade anterior estabelecida. Se o solo permanece após uma perturbação, trata-se de sucessão secundária.'
+  ),
+
+  A('q221','Terça','Ecossistemas e biodiversidade','resistência ecológica',
+    'Após uma perturbação, um manguezal perde parte de sua biomassa, mas mantém estrutura e funcionamento próximos do estado anterior durante o evento. Essa característica expressa principalmente sua',
+    ['resistência ecológica','resiliência, necessariamente medida apenas após recuperação','riqueza específica','sucessão primária','capacidade de suporte populacional'],
+    'A',
+    'Resistência é a capacidade de sofrer pouca alteração diante da perturbação. Resiliência é a capacidade de recuperar estrutura e funções depois de alterado.'
+  ),
+
+  A('q222','Terça','Ecossistemas e biodiversidade','espécie-chave',
+    'A retirada experimental de um predador pouco abundante causa forte aumento de herbívoros e queda acentuada da cobertura vegetal. O resultado indica que o predador pode ser considerado',
+    ['espécie pioneira','espécie-chave, por exercer efeito desproporcional sobre a comunidade','espécie exótica apenas por ser predadora','organismo produtor','espécie indicadora exclusivamente por sua baixa abundância'],
+    'B',
+    'Espécies-chave exercem impacto desproporcional à sua abundância. Sua remoção pode desencadear cascatas tróficas e alterar fortemente a estrutura da comunidade.'
+  ),
+
+  A('q223','Terça','Ecossistemas e biodiversidade','fragmentação de habitats',
+    'Uma estrada fragmenta uma floresta contínua em pequenos remanescentes. Mantidas as demais condições, a consequência mais consistente é',
+    ['eliminação do efeito de borda','aumento garantido do fluxo gênico','redução da conectividade e aumento da proporção de áreas influenciadas pela borda','crescimento automático das populações interiores','homogeneização genética por maior migração'],
+    'C',
+    'A fragmentação reduz conectividade e aumenta a relação borda/área, favorecendo isolamento populacional e alterações microclimáticas nas margens.'
+  ),
+
+  A('q224','Quarta','Ciclos biogeoquímicos','nitrificação × desnitrificação',
+    'Em uma estação de tratamento, condições aeróbias favorecem a oxidação de amônio a nitrito e nitrato; posteriormente, em zona anóxica, o nitrato é convertido em formas gasosas de nitrogênio. Os processos são, respectivamente,',
+    ['amonificação e fixação','fixação e nitrificação','desnitrificação e amonificação','nitrificação e desnitrificação','mineralização e assimilação'],
+    'D',
+    'Nitrificação é a oxidação de formas reduzidas de nitrogênio até nitrito/nitrato. Desnitrificação reduz nitrato a formas gasosas, devolvendo nitrogênio à atmosfera.'
+  ),
+
+  A('q225','Quarta','Ciclos biogeoquímicos','eutrofização',
+    'Um reservatório recebe grande carga de fósforo e nitrogênio, desenvolve floração algal e, depois, intensa decomposição da biomassa. O efeito mais provável na fase de decomposição é',
+    ['redução da demanda bioquímica de oxigênio','elevação permanente do oxigênio dissolvido','interrupção da atividade bacteriana','remoção imediata de todos os nutrientes','queda do oxigênio dissolvido, podendo ocorrer hipóxia ou anoxia'],
+    'E',
+    'A decomposição aeróbia da grande biomassa produzida consome oxigênio. Se o consumo superar a reposição, desenvolvem-se hipóxia ou anoxia.'
+  ),
+
+  A('q226','Quarta','Ciclos biogeoquímicos','ciclo do fósforo',
+    'A mineração de rocha fosfática e o uso de fertilizantes podem acelerar o fluxo de fósforo para ambientes aquáticos. Uma característica que diferencia o ciclo do fósforo do ciclo do nitrogênio é que o fósforo',
+    ['não possui fase gasosa relevante em escala global','tem a atmosfera como seu principal reservatório','é fixado biologicamente a partir de P₂ atmosférico','retorna à atmosfera principalmente por desnitrificação','não participa da biomassa dos organismos'],
+    'A',
+    'O ciclo do fósforo é predominantemente sedimentar e não possui fase gasosa global relevante, ao contrário do nitrogênio, cujo grande reservatório é a atmosfera.'
+  ),
+
+  A('q227','Quarta','Ciclos biogeoquímicos','ciclo da água urbano',
+    'A expansão de áreas impermeabilizadas em uma bacia urbana tende a alterar o ciclo hidrológico local principalmente por',
+    ['aumentar a infiltração e reduzir o escoamento superficial','reduzir a infiltração e aumentar o escoamento superficial','eliminar a evapotranspiração em toda a bacia','aumentar necessariamente a recarga do aquífero','impedir a ocorrência de precipitação'],
+    'B',
+    'A impermeabilização dificulta a entrada de água no solo e aumenta o volume e a velocidade do escoamento superficial, contribuindo para picos de cheia.'
+  ),
+
+  A('q228','Quinta','Dinâmica das populações','crescimento logístico',
+    'Uma população cresce rapidamente quando pequena, mas sua taxa de crescimento diminui à medida que a densidade se aproxima de um valor estável imposto pelos recursos do ambiente. O padrão descrito corresponde ao crescimento',
+    ['linear, sem limitação ambiental','exponencial, com taxa per capita constante e sem limites','logístico, com desaceleração próxima da capacidade de suporte','geométrico, independente da densidade','aleatório, sem relação com recursos'],
+    'C',
+    'No modelo logístico, a resistência ambiental aumenta com a densidade e o crescimento desacelera quando a população se aproxima da capacidade de suporte K.'
+  ),
+
+  A('q229','Quinta','Dinâmica das populações','fatores dependentes da densidade',
+    'Em uma população de roedores, a transmissão de uma doença aumenta com a aglomeração dos indivíduos, enquanto uma enchente extrema afeta a população independentemente de sua densidade. Esses fatores são, respectivamente,',
+    ['ambos independentes da densidade','ambos dependentes da densidade','independente e dependente da densidade','dependente e independente da densidade','biótico e abiótico, portanto ambos necessariamente dependentes da densidade'],
+    'D',
+    'Doenças contagiosas frequentemente se intensificam com a densidade; eventos climáticos extremos, como enchentes, podem atuar independentemente dela.'
+  ),
+
+  A('q230','Quinta','Dinâmica das populações','deriva genética',
+    'Uma população pequena e isolada sofre forte redução numérica após um evento aleatório e, nas gerações seguintes, apresenta menor diversidade genética. O processo que melhor explica essa perda aleatória de alelos é a',
+    ['seleção estabilizadora','migração contínua','mutação direcionada','competição interespecífica','deriva genética, intensificada em populações pequenas'],
+    'E',
+    'A deriva genética corresponde a mudanças aleatórias nas frequências alélicas e tem efeito proporcionalmente maior em populações pequenas, especialmente após gargalos.'
   )
 ]
