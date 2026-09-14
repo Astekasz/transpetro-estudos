@@ -361,6 +361,7 @@ function App() {
     const todayIndex = studyPlan.findIndex(plan => plan.day === todayName)
     const overdue = []
     const todayPending = []
+    const upcoming = []
 
     studyPlan.forEach((plan, planIndex) => {
       plan.lessons.forEach((lesson, lessonIndex) => {
@@ -369,14 +370,21 @@ function App() {
         const item = { key, lesson, day: plan.day, theme: plan.theme, planId: plan.id, planIndex, lessonIndex }
         if (todayIndex >= 0 && planIndex < todayIndex) overdue.push(item)
         if (plan.day === todayName) todayPending.push(item)
+        if (todayIndex >= 0 && planIndex > todayIndex) upcoming.push(item)
       })
     })
 
     overdue.sort((a,b) => a.planIndex - b.planIndex || a.lessonIndex - b.lessonIndex)
+    upcoming.sort((a,b) => a.planIndex - b.planIndex || a.lessonIndex - b.lessonIndex)
     const maxContentItems = Math.floor(CONTENT_MINUTES / ESTIMATED_LESSON_MINUTES)
     const selectedOverdue = overdue.slice(0, maxContentItems)
     const selectedToday = todayPending.slice(0, Math.max(0, maxContentItems - selectedOverdue.length))
-    const contentQueue = [...selectedOverdue.map(x => ({ ...x, type: 'overdue' })), ...selectedToday.map(x => ({ ...x, type: 'today' }))]
+    const selectedUpcoming = upcoming.slice(0, Math.max(0, maxContentItems - selectedOverdue.length - selectedToday.length))
+    const contentQueue = [
+      ...selectedOverdue.map(x => ({ ...x, type: 'overdue' })),
+      ...selectedToday.map(x => ({ ...x, type: 'today' })),
+      ...selectedUpcoming.map(x => ({ ...x, type: 'ahead' }))
+    ]
 
     const sessionThemes = new Set(contentQueue.map(item => item.theme))
     let pool = questions.filter(q => sessionThemes.has(q.theme))
@@ -423,11 +431,12 @@ function App() {
     let nextAction = 'Sessão concluída'
     if (selectedOverdue.length) nextAction = `Recuperar: ${selectedOverdue[0].lesson}`
     else if (selectedToday.length) nextAction = `Estudar: ${selectedToday[0].lesson}`
+    else if (selectedUpcoming.length) nextAction = `Adiantar: ${selectedUpcoming[0].lesson}`
     else if (reviewSchedule.due.length) nextAction = `Revisão programada: ${reviewSchedule.due[0].lesson}`
     else if (todayQuestions.some(q => !answers[q.id])) nextAction = 'Resolver questões do conteúdo'
     else if (reviewItems.length) nextAction = 'Revisar o Caderno de erros'
 
-    return { overdue, selectedOverdue, selectedToday, contentQueue, todayQuestions, reviewItems, nextAction }
+    return { overdue, selectedOverdue, selectedToday, selectedUpcoming, contentQueue, todayQuestions, reviewItems, nextAction }
   }, [progress, answers, activeErrors, weakThemes, reviewSchedule.due, todayName, session?.user?.id])
 
   const estimatedDoneMinutes = Math.min(180,
@@ -583,7 +592,7 @@ function App() {
           <p><strong>Próxima ação:</strong> {adaptiveSession.nextAction}</p>
           {adaptiveSession.overdue.length > 0 && <div className="notice" style={{marginTop:20}}><strong>Recuperação prioritária</strong><p>{adaptiveSession.overdue.length} pendência(s). As mais antigas entram primeiro.</p></div>}
 
-          <StudySection number="1" title={`Conteúdo • ${CONTENT_MINUTES} min`} subtitle="Atrasados primeiro; questões atrasadas podem ser feitas aqui mesmo.">
+          <StudySection number="1" title={`Conteúdo • ${CONTENT_MINUTES} min`} subtitle="Atrasados primeiro; ao terminar o conteúdo do dia, o site avança automaticamente para o próximo conteúdo pendente.">
             {!adaptiveSession.contentQueue.length ? <p className="empty">Nenhum conteúdo pendente.</p> : adaptiveSession.contentQueue.map(item => {
               const questionTask = isQuestionTask(item)
               const blockQuestions = questionTask ? getQuestionsForStudyItem(item) : []
@@ -591,7 +600,7 @@ function App() {
               const blockFinished = blockQuestions.length > 0 && answeredBlock === blockQuestions.length
               const isOpen = Boolean(openStudyBlocks[item.key])
               return <div className="day-card" key={item.key} style={{marginBottom:16}}>
-                <div className="q-meta"><span>{item.type === 'overdue' ? '⚠ ATRASADO' : 'HOJE'}</span><span>{item.day}</span></div>
+                <div className="q-meta"><span>{item.type === 'overdue' ? '⚠ ATRASADO' : item.type === 'ahead' ? 'ADIANTADO' : 'HOJE'}</span><span>{item.day}</span></div>
                 <strong>{item.theme}</strong><p>{item.lesson}</p>
                 {!questionTask && <label className={`lesson ${progress[item.key] === 'Concluído' ? 'done' : ''}`}><input type="checkbox" checked={progress[item.key] === 'Concluído'} onChange={e => setItemProgress(item.key, e.target.checked ? 'Concluído' : 'Não iniciado')} /><span>Marcar conteúdo como concluído</span></label>}
                 {questionTask && <div>
