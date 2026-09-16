@@ -9,7 +9,7 @@ const REVIEW_INTERVALS = [1, 7, 30]
 const CONTENT_MINUTES = 105
 const QUESTIONS_MINUTES = 45
 const REVIEW_MINUTES = 30
-const ESTIMATED_LESSON_MINUTES = 35
+const ESTIMATED_LESSON_MINUTES = 26
 
 const conceptExplanations = {
   'evaporacao': 'Evaporação é a passagem do estado líquido para o gasoso, de forma gradual e pela superfície do líquido.',
@@ -592,7 +592,7 @@ function App() {
           <p><strong>Próxima ação:</strong> {adaptiveSession.nextAction}</p>
           {adaptiveSession.overdue.length > 0 && <div className="notice" style={{marginTop:20}}><strong>Recuperação prioritária</strong><p>{adaptiveSession.overdue.length} pendência(s). As mais antigas entram primeiro.</p></div>}
 
-          <StudySection number="1" title={`Conteúdo • ${CONTENT_MINUTES} min`} subtitle="Atrasados primeiro; ao terminar o conteúdo do dia, o site avança automaticamente para o próximo conteúdo pendente.">
+          <StudySection number="1" title={`Conteúdo • ${CONTENT_MINUTES} min`} subtitle="Aulas calculadas para reprodução em 2x. Atrasados primeiro; ao terminar o conteúdo do dia, o site avança automaticamente para o próximo conteúdo pendente.">
             {!adaptiveSession.contentQueue.length ? <p className="empty">Nenhum conteúdo pendente.</p> : adaptiveSession.contentQueue.map(item => {
               const questionTask = isQuestionTask(item)
               const blockQuestions = questionTask ? getQuestionsForStudyItem(item) : []
