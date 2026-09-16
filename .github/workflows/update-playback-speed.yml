@@ -1,0 +1,45 @@
+name: Atualizar velocidade de estudo para 2x
+
+on:
+  push:
+    paths:
+      - '.github/workflows/update-playback-speed.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update-playback-speed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ajustar estimativa de duração das aulas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/App.jsx')
+          text = path.read_text(encoding='utf-8')
+          old = 'const ESTIMATED_LESSON_MINUTES = 35'
+          new = 'const ESTIMATED_LESSON_MINUTES = 26'
+          if old not in text:
+              raise SystemExit('Estimativa antiga não encontrada; nenhuma alteração feita.')
+          text = text.replace(old, new, 1)
+          text = text.replace(
+              'Atrasados primeiro; ao terminar o conteúdo do dia, o site avança automaticamente para o próximo conteúdo pendente.',
+              'Aulas calculadas para reprodução em 2x. Atrasados primeiro; ao terminar o conteúdo do dia, o site avança automaticamente para o próximo conteúdo pendente.',
+              1
+          )
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit da atualização
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/App.jsx
+          git commit -m 'feat: recalcula cronograma para videoaulas em 2x'
+          git push
