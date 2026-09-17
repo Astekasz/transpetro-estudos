@@ -21,6 +21,14 @@ function noteKey(planId, lessonIndex) {
   return `${planId}:${lessonIndex}`
 }
 
+function findLesson(title = '') {
+  for (const plan of studyPlan) {
+    const lessonIndex = plan.lessons.findIndex(lesson => lesson === title)
+    if (lessonIndex >= 0) return { plan, lessonIndex }
+  }
+  return null
+}
+
 export default function LessonNotes() {
   const [open, setOpen] = useState(false)
   const [session, setSession] = useState(null)
@@ -94,16 +102,33 @@ export default function LessonNotes() {
         : `Abrir anotações da aula ${lessonTitle}`
       const nextTitle = hasNotes ? 'Esta aula possui anotações salvas' : 'Adicionar anotações nesta aula'
 
-      // Importante: o MutationObserver abaixo observa alterações de filhos no #root.
-      // Reatribuir textContent em toda varredura criava uma nova mutação mesmo quando
-      // o texto já era igual, fazendo a aba Aulas entrar em um ciclo contínuo.
       button.classList.toggle('has-notes', hasNotes)
       if (button.textContent !== nextText) button.textContent = nextText
       if (button.getAttribute('aria-label') !== nextAriaLabel) button.setAttribute('aria-label', nextAriaLabel)
       if (button.title !== nextTitle) button.title = nextTitle
     }
 
-    function addButtons() {
+    function createNotesButton(plan, index, lessonTitle) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'lesson-notes-button'
+
+      button.addEventListener('mousedown', event => {
+        event.preventDefault()
+        event.stopPropagation()
+      })
+
+      button.addEventListener('click', event => {
+        event.preventDefault()
+        event.stopPropagation()
+        openNotes(plan, index)
+      })
+
+      updateButtonState(button, plan, index, lessonTitle)
+      return button
+    }
+
+    function addButtonsToSchedule() {
       const dayCards = document.querySelectorAll('.day-grid .day-card')
 
       dayCards.forEach((card, planIndex) => {
@@ -122,27 +147,42 @@ export default function LessonNotes() {
           }
 
           if (!button) {
-            button = document.createElement('button')
-            button.type = 'button'
-            button.className = 'lesson-notes-button'
-
-            button.addEventListener('mousedown', event => {
-              event.preventDefault()
-              event.stopPropagation()
-            })
-
-            button.addEventListener('click', event => {
-              event.preventDefault()
-              event.stopPropagation()
-              openNotes(plan, index)
-            })
-
+            button = createNotesButton(plan, index, lessonTitle)
             row.appendChild(button)
+          } else {
+            updateButtonState(button, plan, index, lessonTitle)
           }
-
-          updateButtonState(button, plan, index, lessonTitle)
         })
       })
+    }
+
+    function addButtonsToStudyToday() {
+      const toolRows = document.querySelectorAll('.study-today-lesson-tools')
+
+      toolRows.forEach(tools => {
+        const card = tools.closest('.day-card')
+        if (!card) return
+
+        const lessonParagraph = Array.from(card.children).find(element => element.tagName === 'P')
+        const lessonTitle = lessonParagraph?.textContent?.trim()
+        if (!lessonTitle || !isActualLesson(lessonTitle)) return
+
+        const lessonInfo = findLesson(lessonTitle)
+        if (!lessonInfo) return
+
+        let button = tools.querySelector('.lesson-notes-button')
+        if (!button) {
+          button = createNotesButton(lessonInfo.plan, lessonInfo.lessonIndex, lessonTitle)
+          tools.appendChild(button)
+        } else {
+          updateButtonState(button, lessonInfo.plan, lessonInfo.lessonIndex, lessonTitle)
+        }
+      })
+    }
+
+    function addButtons() {
+      addButtonsToSchedule()
+      addButtonsToStudyToday()
     }
 
     const root = document.getElementById('root')
