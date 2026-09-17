@@ -10,6 +10,7 @@ import ErrorNotebookDetails from './ErrorNotebookDetails'
 import AnswerConfirmation from './AnswerConfirmation'
 import AnswerFeedbackNormalizer from './AnswerFeedbackNormalizer'
 import ExtraStudyOptions from './ExtraStudyOptions'
+import LastExamTab from './LastExamTab'
 import { questions } from './data/questions'
 import { transcriptQuestions } from './data/transcriptQuestions'
 import { focusedQuestions } from './data/focusedQuestions'
@@ -18,6 +19,7 @@ import './simulationSelection.css'
 import './answerConfirmation.css'
 import './lessonTranscriptButtons.css'
 import './lessonNotes.css'
+import './lastExam.css'
 
 const existingQuestionIds = new Set(questions.map(question => question.id))
 ;[...transcriptQuestions, ...focusedQuestions].forEach(question => {
@@ -53,5 +55,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AnswerConfirmation />
     <AnswerFeedbackNormalizer />
     <ExtraStudyOptions />
+    <LastExamTab />
   </React.StrictMode>,
 )
