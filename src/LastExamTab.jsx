@@ -100,7 +100,7 @@ export default function LastExamTab() {
       statement: question.statement,
       selected_option: selected,
       correct_option: question.correct,
-      explanation: `Gabarito oficial: ${question.correct}.`,
+      explanation: question.explanation || `Gabarito oficial: ${question.correct}.`,
       error_count: errorCount,
       reviewed: false,
       last_error_at: now
@@ -280,8 +280,13 @@ export default function LastExamTab() {
                 })}
               </div>
 
-              {state && <div className={`feedback ${state.correct ? 'ok' : 'bad'}`}>
-                <b>{state.correct ? 'Correto.' : `Gabarito oficial: ${question.correct}.`}</b>
+              {state && state.correct && <div className="feedback ok"><b>Correto.</b></div>}
+
+              {state && !state.correct && <div className="feedback bad">
+                <b>Gabarito oficial: {question.correct}.</b>
+                <div style={{marginTop:'8px',lineHeight:1.55}}>
+                  <strong>Entenda o conceito:</strong> {question.explanation || 'Revise o conceito central cobrado nesta questão antes de tentar novamente.'}
+                </div>
               </div>}
 
               <div className="last-exam-card-footer">
