@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { lastExamQuestions } from './data/lastExamQuestions'
+import { lastExamPassages } from './data/lastExamPassages'
 import { cloudEnabled, supabase } from './supabase'
 
 const PAGE_SIZE = 10
+const SECTIONS = ['Todas', 'Língua Portuguesa', 'Língua Inglesa', 'Conhecimentos Específicos']
 
 function localAnswers() {
   try {
@@ -20,6 +22,7 @@ export default function LastExamTab() {
   const [session, setSession] = useState(null)
   const [answers, setAnswers] = useState({})
   const [filter, setFilter] = useState('Todas')
+  const [sectionFilter, setSectionFilter] = useState('Todas')
   const [page, setPage] = useState(0)
   const [message, setMessage] = useState('')
 
@@ -93,7 +96,7 @@ export default function LastExamTab() {
       user_id: session.user.id,
       question_id: question.id,
       source: 'Prova Transpetro 2023 • original',
-      theme: 'Conhecimentos Específicos',
+      theme: question.section,
       statement: question.statement,
       selected_option: selected,
       correct_option: question.correct,
@@ -123,7 +126,7 @@ export default function LastExamTab() {
       selected_option: selected,
       is_correct: correct,
       day_label: 'Prova 2023',
-      theme: 'Conhecimentos Específicos'
+      theme: question.section
     }, { onConflict: 'user_id,question_id' })
 
     if (error) {
@@ -160,17 +163,24 @@ export default function LastExamTab() {
   const accuracy = answered ? Math.round((correctCount / answered) * 100) : 0
 
   const filteredQuestions = useMemo(() => {
-    if (filter === 'Não respondidas') return lastExamQuestions.filter(question => !answers[question.id])
-    if (filter === 'Erradas') return lastExamQuestions.filter(question => answers[question.id] && !answers[question.id].correct)
-    if (filter === 'Corretas') return lastExamQuestions.filter(question => answers[question.id]?.correct)
-    return lastExamQuestions
-  }, [answers, filter])
+    let result = sectionFilter === 'Todas'
+      ? lastExamQuestions
+      : lastExamQuestions.filter(question => question.section === sectionFilter)
+
+    if (filter === 'Não respondidas') result = result.filter(question => !answers[question.id])
+    if (filter === 'Erradas') result = result.filter(question => answers[question.id] && !answers[question.id].correct)
+    if (filter === 'Corretas') result = result.filter(question => answers[question.id]?.correct)
+    return result
+  }, [answers, filter, sectionFilter])
 
   const pageCount = Math.max(1, Math.ceil(filteredQuestions.length / PAGE_SIZE))
   const safePage = Math.min(page, pageCount - 1)
   const visible = filteredQuestions.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
+  const visiblePassages = [...new Set(visible.map(question => question.section))]
+    .map(section => ({ section, passage: lastExamPassages[section] }))
+    .filter(item => item.passage)
 
-  useEffect(() => setPage(0), [filter])
+  useEffect(() => setPage(0), [filter, sectionFilter])
   useEffect(() => {
     if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1))
   }, [pageCount, page])
@@ -191,13 +201,13 @@ export default function LastExamTab() {
       <div className="section-head last-exam-head">
         <div>
           <div className="eyebrow">TRANSPETRO 2023 • CESGRANRIO • PROVA 3</div>
-          <h2>Questões reais de Análise Ambiental</h2>
-          <p className="muted">Conhecimentos Específicos • questões 21 a 70, transcritas do caderno que você enviou e corrigidas pelo gabarito oficial enviado junto.</p>
+          <h2>Prova real de Análise Ambiental</h2>
+          <p className="muted">70 questões na ordem original: 10 de Língua Portuguesa, 10 de Língua Inglesa e 50 de Conhecimentos Específicos.</p>
         </div>
       </div>
 
       <div className="notice last-exam-note">
-        <strong>Sem adaptações:</strong> o texto das questões e das alternativas foi mantido conforme a prova. Foram removidas apenas quebras de linha e hifenações causadas pela diagramação do PDF.
+        <strong>Sem adaptações:</strong> enunciados, alternativas e textos-base foram transcritos do caderno que você enviou. Foram removidas somente quebras de linha e hifenações artificiais da diagramação do PDF. As respostas usam o gabarito oficial enviado junto.
       </div>
 
       <div className="last-exam-stats">
@@ -207,7 +217,12 @@ export default function LastExamTab() {
         <div className="stat"><span>Aproveitamento</span><strong>{answered ? `${accuracy}%` : '—'}</strong></div>
       </div>
 
-      <div className="last-exam-toolbar">
+      <div className="last-exam-toolbar last-exam-toolbar-grid">
+        <label>Disciplina
+          <select value={sectionFilter} onChange={event => setSectionFilter(event.target.value)}>
+            {SECTIONS.map(section => <option key={section}>{section}</option>)}
+          </select>
+        </label>
         <label>Mostrar
           <select value={filter} onChange={event => setFilter(event.target.value)}>
             <option>Todas</option>
@@ -221,6 +236,12 @@ export default function LastExamTab() {
 
       {message && <div className="notice">{message}</div>}
 
+      {visiblePassages.map(({ section, passage }) => <section className="last-exam-passage" key={section}>
+        <div className="eyebrow">TEXTO-BASE • {section.toUpperCase()}</div>
+        <h3>{passage.title}</h3>
+        <div className="last-exam-passage-body">{passage.body}</div>
+      </section>)}
+
       {!visible.length ? (
         <div className="empty">Nenhuma questão neste filtro.</div>
       ) : (
@@ -230,7 +251,7 @@ export default function LastExamTab() {
             return <article className="question-card last-exam-question" key={question.id}>
               <div className="q-meta">
                 <span>Questão {question.number}</span>
-                <span>Conhecimentos Específicos</span>
+                <span>{question.section}</span>
               </div>
               <h3 className="last-exam-statement">{question.statement}</h3>
 
@@ -273,7 +294,10 @@ export default function LastExamTab() {
       )}
 
       <div className="last-exam-pagination">
-        <button type="button" disabled={safePage === 0} onClick={() => setPage(value => Math.max(0, value - 1))}>← 10 anteriores</button>
+        <button type="button" disabled={safePage === 0} onClick={() => {
+          setPage(value => Math.max(0, value - 1))
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }}>← 10 anteriores</button>
         <button type="button" className="primary" disabled={safePage >= pageCount - 1} onClick={() => {
           setPage(value => Math.min(pageCount - 1, value + 1))
           window.scrollTo({ top: 0, behavior: 'smooth' })
