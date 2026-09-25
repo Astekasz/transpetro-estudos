@@ -1,0 +1,8 @@
+.question-card .options > button{position:relative;padding-right:48px}
+.question-card .options > button.option-eliminated{opacity:.5;text-decoration:line-through;text-decoration-thickness:2px}
+.question-card .options > button.option-eliminated:hover{opacity:.62}
+.option-eliminate{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #cfd9df;border-radius:999px;background:#f7f9fa;color:#60717d;font-weight:900;line-height:1;text-decoration:none!important;opacity:.78;cursor:pointer;z-index:3;user-select:none}
+.option-eliminate:hover,.option-eliminate:focus{opacity:1;background:#eef3f6;color:#213947;outline:2px solid transparent}
+.option-eliminated .option-eliminate{opacity:1;background:#fff0f0;border-color:#e4bcbc;color:#9d3232;text-decoration:none!important}
+.question-card .options > button:disabled .option-eliminate{display:none}
+@media(max-width:760px){.question-card .options > button{padding-right:44px}.option-eliminate{right:8px;width:26px;height:26px}}
