@@ -43,6 +43,8 @@ export default function AnswerConfirmation() {
     }
 
     function handleOptionClick(event) {
+      if (event.target instanceof Element && event.target.closest('.option-eliminate')) return
+
       const target = event.target instanceof Element ? event.target.closest('.question-card .options button') : null
       if (!target || target.disabled) return
 
