@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { questions } from './data/questions'
+import { lastExamQuestions } from './data/lastExamQuestions'
 
 export default function ErrorNotebookDetails() {
   useEffect(() => {
-    const questionByStatement = new Map(questions.map(q => [q.statement.trim(), q]))
+    const questionByStatement = new Map([...questions, ...lastExamQuestions].map(q => [q.statement.trim(), q]))
     let scheduled = false
 
     function enhanceCards() {
