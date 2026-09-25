@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { cloudEnabled, supabase } from './supabase'
 import { studyPlan, editalItems } from './data/studyPlan'
 import { questions } from './data/questions'
+import { lastExamQuestions } from './data/lastExamQuestions'
 
 const weekDayMap = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado']
 const weekStudyDays = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado']
@@ -63,16 +64,40 @@ function normalizeConcept(text = '') {
     .replace(/\s+/g, ' ')
 }
 
+function findQuestionById(questionId) {
+  return questions.find(question => question.id === questionId)
+    || lastExamQuestions.find(question => question.id === questionId)
+}
+
+const lastExamWrongOptionExplanations = {
+  'tp2023-41:B': 'A alternativa B subestima a concentração. Como 80% em volume correspondem a 800.000 ppm, a conversão para concentração mássica de CO₂ a 25 °C e 1 atm leva ao valor da alternativa A, e não ao valor indicado em B.',
+  'tp2023-43:C': 'A alternativa C reduz logística reversa a uma devolução rápida ao fornecedor e ainda desconsidera reciclagem e reutilização. Isso contraria a definição legal, que envolve coleta e restituição ao setor empresarial para reaproveitamento em ciclos produtivos ou outra destinação final ambientalmente adequada.'
+}
+
 function explainChosenWrongAlternative(item) {
-  const q = questions.find(question => question.id === item.question_id)
+  const q = findQuestionById(item.question_id)
   const selectedText = q?.options?.[item.selected_option] || item.selected_option
   const specific = q?.optionExplanations?.[item.selected_option]
   if (specific) return specific
 
-  const normalized = normalizeConcept(selectedText)
-  if (conceptExplanations[normalized]) return conceptExplanations[normalized]
+  if (!q) {
+    return 'Não foi possível recuperar o texto desta alternativa. O registro foi preservado, mas a explicação automática foi desativada para evitar associar um conceito incorreto.'
+  }
 
-  const partial = Object.entries(conceptExplanations).find(([key]) => normalized.includes(key) || key.includes(normalized))
+  const examSpecific = lastExamWrongOptionExplanations[`${q.id}:${item.selected_option}`]
+  if (examSpecific) return examSpecific
+
+  if (q.id.startsWith('tp2023-')) {
+    const correctText = q.options?.[item.correct_option] || q.options?.[q.correct] || item.correct_option || q.correct
+    return `A alternativa ${item.selected_option} afirma “${selectedText}”. Ela não corresponde ao conceito, regra ou resultado pedido no enunciado. A alternativa correta é ${item.correct_option || q.correct}: “${correctText}”. Use a explicação acima para comparar exatamente onde as duas divergem.`
+  }
+
+  const normalized = normalizeConcept(selectedText)
+  if (normalized.length >= 4 && conceptExplanations[normalized]) return conceptExplanations[normalized]
+
+  const partial = normalized.length >= 4
+    ? Object.entries(conceptExplanations).find(([key]) => key.length >= 4 && (normalized.includes(key) || key.includes(normalized)))
+    : null
   if (partial) return partial[1]
 
   return `A alternativa “${selectedText}” pertence ao tema da questão, mas não corresponde ao conceito ou processo descrito no enunciado. Compare a definição dessa alternativa com a explicação da resposta correta acima.`
@@ -694,7 +719,7 @@ function QuestionCard({ q, n, state, onAnswer }) {
 }
 
 function ErrorCard({ item, onToggle }) {
-  const q = questions.find(question => question.id === item.question_id)
+  const q = findQuestionById(item.question_id)
   const selectedText = q?.options?.[item.selected_option] || item.selected_option
   const correctText = q?.options?.[item.correct_option] || item.correct_option
   const wrongExplanation = explainChosenWrongAlternative(item)
@@ -706,7 +731,7 @@ function ErrorCard({ item, onToggle }) {
     <p><b>Resposta correta:</b> {correctText}</p>
     <div style={{marginTop:14,padding:'12px 14px',border:'1px solid #dfe6ee',borderRadius:10}}>
       <p style={{marginTop:0}}><b>Por que a correta está certa:</b> {item.explanation}</p>
-      <p style={{marginBottom:0}}><b>O que significa a alternativa que você marcou:</b> {wrongExplanation}</p>
+      <p style={{marginBottom:0}}><b>Por que a alternativa que você marcou não é a correta:</b> {wrongExplanation}</p>
     </div>
     <p><b>Erros nessa questão:</b> {item.error_count}</p>
     <button className={item.reviewed ? '' : 'primary'} onClick={onToggle}>{item.reviewed ? 'Marcar como pendente' : 'Marcar como revisado'}</button>
