@@ -8,6 +8,7 @@ import LessonNotes from './LessonNotes'
 import AnswerBalancer from './AnswerBalancer'
 import ErrorNotebookDetails from './ErrorNotebookDetails'
 import AnswerConfirmation from './AnswerConfirmation'
+import OptionEliminator from './OptionEliminator'
 import AnswerFeedbackNormalizer from './AnswerFeedbackNormalizer'
 import ExtraStudyOptions from './ExtraStudyOptions'
 import LastExamTab from './LastExamTab'
@@ -19,6 +20,7 @@ import { focusedQuestions } from './data/focusedQuestions'
 import './styles.css'
 import './simulationSelection.css'
 import './answerConfirmation.css'
+import './optionEliminator.css'
 import './lessonTranscriptButtons.css'
 import './lessonNotes.css'
 import './lastExam.css'
@@ -104,6 +106,8 @@ function Root() {
     if (!ready) return
 
     function handleQuestionAnswer(event) {
+      if (event.target.closest('.option-eliminate')) return
+
       const option = event.target.closest('.question-card .options button')
       if (!option || option.disabled) return
 
@@ -138,6 +142,7 @@ function Root() {
     <AnswerBalancer />
     <ErrorNotebookDetails />
     <AnswerConfirmation />
+    <OptionEliminator />
     <AnswerFeedbackNormalizer />
     <ExtraStudyOptions />
     <LastExamTab />
