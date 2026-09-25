@@ -70,8 +70,6 @@ function readLocalAnsweredIds() {
 
 function Root() {
   const [ready, setReady] = React.useState(false)
-  const [, refreshQuestionOrder] = React.useState(0)
-  const answeredIdsRef = React.useRef(new Set())
 
   React.useEffect(() => {
     let cancelled = false
@@ -93,7 +91,6 @@ function Root() {
       }
 
       if (cancelled) return
-      answeredIdsRef.current = answeredIds
       prioritizeUnanswered(answeredIds)
       setReady(true)
     }
@@ -101,35 +98,6 @@ function Root() {
     loadAnsweredQuestions()
     return () => { cancelled = true }
   }, [])
-
-  React.useEffect(() => {
-    if (!ready) return
-
-    function handleQuestionAnswer(event) {
-      if (event.target.closest('.option-eliminate')) return
-
-      const option = event.target.closest('.question-card .options button')
-      if (!option || option.disabled) return
-
-      const card = option.closest('.question-card')
-      if (!card || card.closest('.last-exam-panel')) return
-
-      const statement = card.querySelector('h3')?.textContent?.trim()
-      if (!statement) return
-
-      const question = questions.find(item => item.statement.trim() === statement)
-      if (!question) return
-
-      answeredIdsRef.current.add(question.id)
-      setTimeout(() => {
-        prioritizeUnanswered(answeredIdsRef.current)
-        refreshQuestionOrder(value => value + 1)
-      }, 0)
-    }
-
-    document.addEventListener('click', handleQuestionAnswer)
-    return () => document.removeEventListener('click', handleQuestionAnswer)
-  }, [ready])
 
   if (!ready) return null
 
