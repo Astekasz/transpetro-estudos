@@ -52,15 +52,15 @@ const lessonMetaByTitle = {
     topic: '5',
     lesson: '06'
   },
-  'Adaptação e Especiação': {
-    course: 'IFPA — EBTT Biologia (Módulo Especial)',
-    topic: '8',
-    lesson: '01'
+  'Genética de Populações e Evolução: Seleção natural, mutação, deriva, fluxo gênico.': {
+    course: 'IFRN — Conhecimentos Específicos para Professor EBTT — Biologia',
+    topic: '6',
+    lesson: '04'
   },
-  'Genética das Populações e Evolução: Teoria e Mecanismos': {
-    course: 'IFPA — EBTT Biologia (Módulo Especial)',
-    topic: '8',
-    lesson: '02'
+  'Especiação': {
+    course: 'IFRN — Conhecimentos Específicos para Professor EBTT — Biologia',
+    topic: '6',
+    lesson: '07'
   },
   'Deriva continental e Tectônica de Placas': {
     course: 'IFPA — EBTT Biologia (Módulo Especial)',
