@@ -62,8 +62,8 @@ export const studyPlan = [
     theme: 'Biogeografia',
     block: '1.6',
     lessons: [
-      'Adaptação e Especiação',
-      'Genética das Populações e Evolução: Teoria e Mecanismos',
+      'Genética de Populações e Evolução: Seleção natural, mutação, deriva, fluxo gênico.',
+      'Especiação',
       'Deriva continental e Tectônica de Placas',
       'Questões: dispersão × vicariância × ilhas'
     ]
