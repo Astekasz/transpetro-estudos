@@ -157,13 +157,13 @@ function addErrorDrills(wrongSpecific) {
   }
 }
 
-export function applyErrorDrivenStudyMode(wrongIds = DEFAULT_WRONG_SPECIFIC) {
+export function applyErrorDrivenStudyMode(wrongIds = null) {
+  const sourceIds = wrongIds == null ? DEFAULT_WRONG_SPECIFIC : new Set(wrongIds)
   const wrongSpecific = new Set(
-    [...wrongIds].filter(id => /^tp2023-(?:2[1-9]|[3-6]\d|70)$/.test(id))
+    [...sourceIds].filter(id => /^tp2023-(?:2[1-9]|[3-6]\d|70)$/.test(id))
   )
 
-  const effectiveWrong = wrongSpecific.size ? wrongSpecific : DEFAULT_WRONG_SPECIFIC
-  studyPlan.splice(0, studyPlan.length, ...buildPlan(effectiveWrong))
-  addErrorDrills(effectiveWrong)
-  return effectiveWrong
+  studyPlan.splice(0, studyPlan.length, ...buildPlan(wrongSpecific))
+  addErrorDrills(wrongSpecific)
+  return wrongSpecific
 }
