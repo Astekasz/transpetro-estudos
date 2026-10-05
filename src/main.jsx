@@ -17,6 +17,7 @@ import { cloudEnabled, supabase } from './supabase'
 import { questions } from './data/questions'
 import { transcriptQuestions } from './data/transcriptQuestions'
 import { focusedQuestions } from './data/focusedQuestions'
+import { examTopicQuestions } from './data/examTopicQuestions'
 import { applyErrorDrivenStudyMode, DEFAULT_WRONG_SPECIFIC } from './data/errorDrivenStudyMode'
 import './styles.css'
 import './simulationSelection.css'
@@ -28,7 +29,7 @@ import './lastExam.css'
 import './examRetake.css'
 
 const existingQuestionIds = new Set(questions.map(question => question.id))
-;[...transcriptQuestions, ...focusedQuestions].forEach(question => {
+;[...transcriptQuestions, ...focusedQuestions, ...examTopicQuestions].forEach(question => {
   if (!existingQuestionIds.has(question.id)) {
     questions.push(question)
     existingQuestionIds.add(question.id)
