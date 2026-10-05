@@ -17,6 +17,7 @@ import { cloudEnabled, supabase } from './supabase'
 import { questions } from './data/questions'
 import { transcriptQuestions } from './data/transcriptQuestions'
 import { focusedQuestions } from './data/focusedQuestions'
+import { applyErrorDrivenStudyMode, DEFAULT_WRONG_SPECIFIC } from './data/errorDrivenStudyMode'
 import './styles.css'
 import './simulationSelection.css'
 import './answerConfirmation.css'
@@ -48,24 +49,30 @@ for (let index = 0; index < priorityLength; index += 1) {
 }
 questions.splice(0, questions.length, ...prioritizedQuestions, ...regularQuestions)
 
-const baseQuestionOrder = new Map(questions.map((question, index) => [question.id, index]))
-
 function prioritizeUnanswered(answeredIds) {
+  const currentOrder = new Map(questions.map((question, index) => [question.id, index]))
   questions.sort((a, b) => {
     const aAnswered = answeredIds.has(a.id) ? 1 : 0
     const bAnswered = answeredIds.has(b.id) ? 1 : 0
     if (aAnswered !== bAnswered) return aAnswered - bAnswered
-    return (baseQuestionOrder.get(a.id) ?? 0) - (baseQuestionOrder.get(b.id) ?? 0)
+    return (currentOrder.get(a.id) ?? 0) - (currentOrder.get(b.id) ?? 0)
   })
 }
 
-function readLocalAnsweredIds() {
+function readLocalAnswers() {
   try {
-    const stored = JSON.parse(localStorage.getItem('tp_answers') || '{}')
-    return new Set(Object.keys(stored))
+    return JSON.parse(localStorage.getItem('tp_answers') || '{}')
   } catch {
-    return new Set()
+    return {}
   }
+}
+
+function currentWrongSpecificFromLocal(localAnswers) {
+  return new Set(
+    Object.entries(localAnswers)
+      .filter(([id, answer]) => /^tp2023-(?:2[1-9]|[3-6]\d|70)$/.test(id) && answer?.correct === false)
+      .map(([id]) => id)
+  )
 }
 
 function Root() {
@@ -75,7 +82,10 @@ function Root() {
     let cancelled = false
 
     async function loadAnsweredQuestions() {
-      let answeredIds = readLocalAnsweredIds()
+      const localAnswers = readLocalAnswers()
+      let answeredIds = new Set(Object.keys(localAnswers))
+      let wrongSpecific = currentWrongSpecificFromLocal(localAnswers)
+      let hasExamHistory = Object.keys(localAnswers).some(id => id.startsWith('tp2023-'))
 
       if (cloudEnabled) {
         const { data: sessionData } = await supabase.auth.getSession()
@@ -83,14 +93,27 @@ function Root() {
         if (user) {
           const { data: rows, error } = await supabase
             .from('answers')
-            .select('question_id')
+            .select('question_id,is_correct')
             .eq('user_id', user.id)
 
-          if (!error) answeredIds = new Set((rows || []).map(row => row.question_id))
+          if (!error) {
+            answeredIds = new Set((rows || []).map(row => row.question_id))
+            hasExamHistory = (rows || []).some(row => row.question_id?.startsWith('tp2023-'))
+            wrongSpecific = new Set(
+              (rows || [])
+                .filter(row => /^tp2023-(?:2[1-9]|[3-6]\d|70)$/.test(row.question_id || '') && row.is_correct === false)
+                .map(row => row.question_id)
+            )
+          }
         }
       }
 
       if (cancelled) return
+
+      // Se a prova já foi respondida, o cronograma usa somente os erros que continuam
+      // ativos. Sem histórico ainda, parte do diagnóstico atual conhecido para não
+      // deixar a sessão vazia.
+      applyErrorDrivenStudyMode(hasExamHistory ? wrongSpecific : DEFAULT_WRONG_SPECIFIC)
       prioritizeUnanswered(answeredIds)
       setReady(true)
     }
